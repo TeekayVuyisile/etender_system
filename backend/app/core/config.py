@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     sync_interval_hours: float = 6
     sync_days: int = 3
 
+    # "Try the demo": one-click demo teams with sample data, deleted after demo_ttl_hours.
+    demo_mode_enabled: bool = False
+    demo_ttl_hours: float = 24
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

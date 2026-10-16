@@ -151,6 +151,16 @@ They're stored in MongoDB (`notifications`) and delivered through a `Notifier` w
 channels. Only the in-app channel exists today; an email channel can be added without
 changing the code that raises notifications.
 
+## Demo mode
+
+With `DEMO_MODE_ENABLED=true`, the login page offers **Try the demo**: one click creates a
+private demo team (*Thabo's Civil Works*, Pro plan, three members) whose workspace is built
+from real open tenders that suit its profile, with AI summaries, match scores, status history,
+notes, tasks and notifications. Each visitor gets their own team, so nobody sees anyone else's
+changes. Demo teams are deleted after `DEMO_TTL_HOURS` (default 24) by an hourly job, which
+also keeps a few demo-ready AI summaries in stock (`python -m app.cli prepare-demo` does the
+same on demand). Demo creation is rate-limited to 10 per hour per visitor.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+

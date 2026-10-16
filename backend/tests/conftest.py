@@ -11,7 +11,7 @@ from typing import Any  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy import create_engine, event  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
@@ -41,6 +41,12 @@ from app.services.sync_runs import get_sync_run_store  # noqa: E402
 # StaticPool keeps a single connection, so the in-memory database survives between sessions.
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+@event.listens_for(engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, _record) -> None:
+    # SQLite ignores foreign keys (and ON DELETE CASCADE) unless asked; PostgreSQL doesn't.
+    dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 
 class FakeActivityLogger:

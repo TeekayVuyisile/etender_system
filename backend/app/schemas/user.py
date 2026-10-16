@@ -11,6 +11,7 @@ class TeamRead(BaseModel):
     id: int
     name: str
     plan: Plan
+    is_demo: bool = False
     created_at: datetime
 
 
