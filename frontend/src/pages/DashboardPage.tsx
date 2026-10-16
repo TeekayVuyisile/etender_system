@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
+import { Link } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
 import { ErrorAlert } from '../components/ui/Alert'
@@ -8,6 +9,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { TextField } from '../components/ui/TextField'
 import { apiRequest, getErrorMessage } from '../lib/api'
 import type { CurrentUser, MemberCreateData, Plan, User } from '../lib/types'
+import { useCompanyProfile } from '../profile/queries'
 
 const planLabels: Record<Plan, string> = { free: 'Free', basic: 'Basic', pro: 'Pro' }
 
@@ -39,6 +41,8 @@ export function DashboardPage() {
 }
 
 function TeamCard({ user }: { user: CurrentUser }) {
+  const { data: profile } = useCompanyProfile()
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-500">Your team</h2>
@@ -56,11 +60,29 @@ function TeamCard({ user }: { user: CurrentUser }) {
           <dt className="text-slate-500">Your role</dt>
           <dd className="font-medium text-slate-900 capitalize">{user.role}</dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Email</dt>
-          <dd className="truncate font-medium text-slate-900">{user.email}</dd>
-        </div>
+        {profile && (
+          <>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Sector</dt>
+              <dd className="text-right font-medium text-slate-900">{profile.industry_sector}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Coverage</dt>
+              <dd className="font-medium text-slate-900">
+                {profile.provinces.length === 9
+                  ? 'National'
+                  : `${profile.provinces.length} province${profile.provinces.length === 1 ? '' : 's'}`}
+              </dd>
+            </div>
+          </>
+        )}
       </dl>
+      <Link
+        to="/company-profile"
+        className="mt-6 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+      >
+        View company profile →
+      </Link>
     </section>
   )
 }

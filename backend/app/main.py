@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, health, team
+from app.api.routes import auth, company_profile, health, team
 from app.core.config import settings
 from app.db.mongo import mongo_client
 
@@ -35,3 +35,4 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(team.router, prefix="/api")
+app.include_router(company_profile.router, prefix="/api")
