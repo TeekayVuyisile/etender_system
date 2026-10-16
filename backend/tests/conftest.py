@@ -4,6 +4,11 @@ import os
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["MONGODB_URL"] = "mongodb://localhost:27017"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-hs256"
+# Environment variables override backend/.env, so a developer's local settings (e.g. demo
+# mode switched on) can't change how the tests behave.
+os.environ["DEMO_MODE_ENABLED"] = "false"
+os.environ["SYNC_SCHEDULE_ENABLED"] = "false"
+os.environ["GROQ_API_KEY"] = ""
 
 from collections.abc import Iterator  # noqa: E402
 from datetime import UTC, datetime, timedelta  # noqa: E402
@@ -11,7 +16,7 @@ from typing import Any  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, event  # noqa: E402
+from sqlalchemy import create_engine, event, make_url, text  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
@@ -38,15 +43,45 @@ from app.services.notifications import (  # noqa: E402
 from app.services.summary_store import get_summary_store  # noqa: E402
 from app.services.sync_runs import get_sync_run_store  # noqa: E402
 
-# StaticPool keeps a single connection, so the in-memory database survives between sessions.
-engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+# Tests run on in-memory SQLite by default (fast, nothing to install). Set TEST_DATABASE_URL to
+# run them against PostgreSQL instead, as CI does, to cover PostgreSQL-only behaviour such as
+# full-text search. The suite empties every table, so it refuses databases not named "test".
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "").strip()
+USING_POSTGRES = bool(TEST_DATABASE_URL)
+
+if USING_POSTGRES:
+    _url = make_url(TEST_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1))
+    if "test" not in (_url.database or ""):
+        raise RuntimeError(
+            f"Refusing to run tests against database {_url.database!r}: the test suite deletes "
+            "all data. Use a dedicated database whose name contains 'test'."
+        )
+    engine = create_engine(_url)
+else:
+    # StaticPool keeps one connection, so the in-memory database survives between sessions.
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _record) -> None:
+        # SQLite ignores foreign keys (and ON DELETE CASCADE) unless asked; PostgreSQL doesn't.
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-@event.listens_for(engine, "connect")
-def _enable_sqlite_foreign_keys(dbapi_connection, _record) -> None:
-    # SQLite ignores foreign keys (and ON DELETE CASCADE) unless asked; PostgreSQL doesn't.
-    dbapi_connection.execute("PRAGMA foreign_keys=ON")
+@pytest.fixture(scope="session", autouse=True)
+def _postgres_schema() -> Iterator[None]:
+    """On PostgreSQL, create the tables once for the whole run (much faster than per test)."""
+    if USING_POSTGRES:
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+    yield
+    if USING_POSTGRES:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 class FakeActivityLogger:
@@ -214,13 +249,20 @@ class FakeLLM:
 
 @pytest.fixture
 def db() -> Iterator[Session]:
-    Base.metadata.create_all(engine)
+    if not USING_POSTGRES:
+        Base.metadata.create_all(engine)
     session = TestingSessionLocal()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(engine)
+        if USING_POSTGRES:
+            # Empty every table in one statement and reset ID counters for the next test.
+            tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+            with engine.begin() as connection:
+                connection.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        else:
+            Base.metadata.drop_all(engine)
 
 
 @pytest.fixture
