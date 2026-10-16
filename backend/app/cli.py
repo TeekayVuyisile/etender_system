@@ -1,48 +1,61 @@
 """Command-line tasks. Run from the backend folder, e.g.:
 
-python -m app.cli sync-tenders --days 30
+python -m app.cli sync-tenders --days 30   # one sync now
+python -m app.cli scheduler                # keep syncing on a schedule (worker process)
 """
 
 import argparse
 import logging
-from datetime import UTC, datetime
+import signal
+from datetime import timedelta
 
-from pymongo.errors import PyMongoError
-
-from app.db.mongo import get_mongo_db
+from app.core.config import settings
 from app.db.session import SessionLocal
-from app.services.tender_sync import default_client, sync_tenders
+from app.services.sync_job import SyncScheduler, run_sync_job
 
 logger = logging.getLogger("app.cli")
-
-
-def run_sync(days: int, enrich: bool) -> None:
-    started_at = datetime.now(UTC)
-    with SessionLocal() as db, default_client() as client:
-        result = sync_tenders(db, client, days=days, enrich=enrich)
-
-    logger.info("Sync finished: %s", result.as_dict())
-    try:
-        get_mongo_db()["tender_sync_runs"].insert_one(
-            {"started_at": started_at, "days": days, "enrich": enrich, **result.as_dict()}
-        )
-    except PyMongoError:
-        logger.warning("Could not record sync run in MongoDB", exc_info=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    sync = commands.add_parser("sync-tenders", help="Import tenders from the eTenders APIs")
+    sync = commands.add_parser("sync-tenders", help="Import tenders from the eTenders APIs now")
     sync.add_argument("--days", type=int, default=30, help="How many days back to import")
     sync.add_argument("--no-enrich", action="store_true", help="Skip eTenders portal enrichment")
 
+    schedule = commands.add_parser("scheduler", help="Sync tenders on a schedule until stopped")
+    schedule.add_argument(
+        "--interval-hours",
+        type=float,
+        default=settings.sync_interval_hours,
+        help=f"Hours between syncs (default {settings.sync_interval_hours})",
+    )
+    schedule.add_argument(
+        "--days",
+        type=int,
+        default=settings.sync_days,
+        help=f"How many days back each sync imports (default {settings.sync_days})",
+    )
+
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     if args.command == "sync-tenders":
-        run_sync(days=args.days, enrich=not args.no_enrich)
+        result = run_sync_job(SessionLocal, args.days, trigger="cli", enrich=not args.no_enrich)
+        if result is None:
+            logger.warning("Another tender sync is already running; try again later")
+    elif args.command == "scheduler":
+        scheduler = SyncScheduler(
+            SessionLocal, interval=timedelta(hours=args.interval_hours), days=args.days
+        )
+        # Stop cleanly on Ctrl+C or `docker stop` (SIGTERM).
+        signal.signal(signal.SIGTERM, lambda *_: scheduler.stop(timeout=0))
+        try:
+            scheduler.run_forever()
+        except KeyboardInterrupt:
+            logger.info("Scheduler stopped")
 
 
 if __name__ == "__main__":

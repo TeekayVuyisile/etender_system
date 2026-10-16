@@ -33,9 +33,18 @@ frontend/   React application
 
 ## Tender data
 
-Tenders are imported from the [OCDS eTenders API](https://ocds-api.etenders.gov.za/swagger) by
-`python -m app.cli sync-tenders`, which upserts releases into PostgreSQL and records each run in
-MongoDB. Some notes on the source data:
+Tenders are imported from the [OCDS eTenders API](https://ocds-api.etenders.gov.za/swagger),
+upserted into PostgreSQL, and each run is recorded in MongoDB (`tender_sync_runs`).
+
+- **On a schedule:** every `SYNC_INTERVAL_HOURS` (default 6), importing the last `SYNC_DAYS`
+  (default 3) and re-enriching all open tenders. Run it as a worker with
+  `python -m app.cli scheduler`, or inside the API with `SYNC_SCHEDULE_ENABLED=true`.
+- **On demand:** `python -m app.cli sync-tenders --days 30` (e.g. the first import).
+- A lock in PostgreSQL (`job_locks`) ensures only one sync runs at a time across processes;
+  it expires automatically if a sync crashes. The Tenders page shows when data was last updated
+  (`GET /api/tenders/sync-status`).
+
+Some notes on the source data:
 
 - **Province, category, briefing sessions and contact details** aren't part of the OCDS releases.
   They are added from the eTenders portal listing (matched on tender ID). If that enrichment fails,
