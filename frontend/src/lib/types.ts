@@ -217,3 +217,40 @@ export type TaskInput = {
   due_date?: string | null
   is_done?: boolean
 }
+
+export type SummaryStatus = 'none' | 'processing' | 'ready' | 'failed'
+
+export type TenderRequirements = {
+  cidb: { class_code: string; min_grade: number }[]
+  bbbee_min_level: number | null
+  min_years_experience: number | null
+  certifications: string[]
+  provinces: string[]
+  compulsory_briefing: boolean | null
+}
+
+export type TenderSummaryContent = {
+  summary: string
+  objective: string | null
+  scope: string[]
+  closing_date: string | null
+  eligibility: string[]
+  requirements: TenderRequirements
+  contract_duration: string | null
+  evaluation: string | null
+  estimated_value: number | null
+  other_highlights: string[]
+}
+
+export type TenderSummary = {
+  tender_id: number
+  status: SummaryStatus
+  content: TenderSummaryContent | null
+  source: 'documents' | 'details_only' | null
+  documents: { title: string; chars: number }[]
+  unreadable_documents: string[]
+  truncated: boolean
+  model: string | null
+  error: string | null
+  updated_at: string | null
+}

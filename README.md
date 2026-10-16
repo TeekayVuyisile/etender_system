@@ -46,6 +46,30 @@ MongoDB. Some notes on the source data:
 - A small number of records cause the OCDS API to return HTTP 500; the sync narrows failing pages
   down and skips only those records.
 
+## AI pipeline
+
+Tender summaries are generated on request (`POST /api/tenders/{id}/summary`) as a background job;
+the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
+
+1. **Download** up to 3 of the tender's documents (PDF, DOCX, or ZIPs containing them), with
+   size limits and zip-bomb protection.
+2. **Extract text** with PyMuPDF (PDF) and python-docx (DOCX, including tables).
+3. **Select excerpts.** Tender packs are often 50–150 pages, mostly standard forms, while the
+   free Groq tier allows ~8,000 tokens per minute. The pipeline keeps each document's opening
+   pages and the passages that score highest for scope, eligibility, CIDB, B-BBEE, evaluation,
+   briefing and duration keywords (boilerplate forms are penalised), within ~20k characters.
+4. **Summarise** with Groq (`openai/gpt-oss-120b`, JSON mode, low reasoning effort). The prompt
+   asks for a plain-language summary plus structured fields: objective, scope, closing date,
+   eligibility, requirements (CIDB class/grade, B-BBEE level, experience, certifications,
+   provinces, compulsory briefing), contract duration, evaluation method, estimated value and
+   other highlights. The model is told to leave unknown fields empty rather than guess.
+5. **Validate** the response with Pydantic (invalid CIDB classes, provinces, numbers are
+   dropped) and **store** it in MongoDB (`tender_summaries`). Extracted values also fill in the
+   tender's budget when the source data has none.
+
+Scanned documents without a text layer fall back to a summary of the tender's portal details,
+and say so. LLM calls are serialised and retried on rate limits.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+
