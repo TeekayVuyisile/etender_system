@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router'
 
@@ -10,6 +10,9 @@ import { TextField } from '../components/ui/TextField'
 import { apiRequest, getErrorMessage } from '../lib/api'
 import type { CurrentUser, MemberCreateData, Plan, User } from '../lib/types'
 import { useCompanyProfile } from '../profile/queries'
+import { teamMembersKey, useTeamMembers } from '../team/queries'
+import { MyTasksCard } from '../workspace/MyTasksCard'
+import { WorkspaceSummaryCard } from '../workspace/WorkspaceSummaryCard'
 
 const planLabels: Record<Plan, string> = { free: 'Free', basic: 'Basic', pro: 'Pro' }
 
@@ -25,9 +28,14 @@ export function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Welcome, {user.full_name.split(' ')[0]}
         </h1>
-        <p className="mt-1 text-slate-600">
-          Tender search, AI summaries and readiness checks are coming in the next milestones.
-        </p>
+        <p className="mt-1 text-slate-600">Here's what's happening in your team's workspace.</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <MyTasksCard />
+        </div>
+        <WorkspaceSummaryCard />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -88,10 +96,7 @@ function TeamCard({ user }: { user: CurrentUser }) {
 }
 
 function MembersCard({ user }: { user: CurrentUser }) {
-  const membersQuery = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => apiRequest<User[]>('/team/members'),
-  })
+  const membersQuery = useTeamMembers()
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -142,7 +147,7 @@ function AddMemberForm() {
       apiRequest<User>('/team/members', { method: 'POST', json: data }),
     onSuccess: () => {
       setForm(emptyMember)
-      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+      queryClient.invalidateQueries({ queryKey: teamMembersKey })
     },
   })
 

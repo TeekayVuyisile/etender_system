@@ -9,6 +9,8 @@ import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { TenderDetailPage } from './pages/TenderDetailPage'
 import { TendersPage } from './pages/TendersPage'
+import { WorkspaceEntryPage } from './pages/WorkspaceEntryPage'
+import { WorkspacePage } from './pages/WorkspacePage'
 import { RegisterPage } from './pages/RegisterPage'
 
 function App() {
@@ -30,6 +32,8 @@ function App() {
                 <Route path="/company-profile" element={<CompanyProfilePage />} />
                 <Route path="/tenders" element={<TendersPage />} />
                 <Route path="/tenders/:tenderId" element={<TenderDetailPage />} />
+                <Route path="/workspace" element={<WorkspacePage />} />
+                <Route path="/workspace/:entryId" element={<WorkspaceEntryPage />} />
               </Route>
             </Route>
           </Route>
