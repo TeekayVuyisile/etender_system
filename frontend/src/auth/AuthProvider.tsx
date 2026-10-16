@@ -56,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [saveToken],
   )
 
+  const startDemo = useCallback(async () => {
+    const response = await apiRequest<TokenResponse>('/auth/demo', { method: 'POST' })
+    saveToken(response)
+  }, [saveToken])
+
   const logout = useCallback(() => {
     tokenStorage.clear()
     setToken(null)
@@ -68,9 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: token !== null && meQuery.isPending,
       login,
       register,
+      startDemo,
       logout,
     }),
-    [token, meQuery.data, meQuery.isPending, login, register, logout],
+    [token, meQuery.data, meQuery.isPending, login, register, startDemo, logout],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>

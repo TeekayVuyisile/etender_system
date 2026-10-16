@@ -5,6 +5,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
+from collections.abc import Hashable
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -70,10 +71,13 @@ class RateLimiter:
     def __init__(self, limit: int = RATE_LIMIT_PER_MINUTE, window_seconds: float = 60) -> None:
         self.limit = limit
         self.window = window_seconds
-        self._hits: dict[int, deque[float]] = defaultdict(deque)
+        self.period_label = (
+            "minute" if window_seconds == 60 else f"{window_seconds / 3600:g} hour(s)"
+        )
+        self._hits: dict[Hashable, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
-    def check(self, key_id: int) -> None:
+    def check(self, key_id: Hashable) -> None:
         now = time.monotonic()
         with self._lock:
             hits = self._hits[key_id]
@@ -83,7 +87,7 @@ class RateLimiter:
                 retry_after = int(self.window - (now - hits[0])) + 1
                 raise HTTPException(
                     status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Rate limit of {self.limit} requests per minute exceeded",
+                    detail=f"Too many requests: the limit is {self.limit} per {self.period_label}",
                     headers={"Retry-After": str(retry_after)},
                 )
             hits.append(now)

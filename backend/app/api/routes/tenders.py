@@ -247,7 +247,7 @@ def match_tender(
     activity: Activity,
     background_tasks: BackgroundTasks,
 ) -> MatchResultResponse:
-    """ "Match This Tender": score the tender's requirements against your company profile."""
+    """Match This Tender: score the tender's requirements against your company profile."""
     tender = db.get(Tender, tender_id)
     if tender is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tender not found")

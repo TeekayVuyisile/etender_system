@@ -18,6 +18,24 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {user?.team.is_demo && (
+        <div className="bg-slate-900 px-4 py-2 text-center text-sm text-slate-100">
+          You&apos;re exploring a demo workspace with sample data from real tenders. It&apos;s
+          private to you and resets after 24 hours.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              logout()
+              // A full page load: an in-app navigation would be overridden by the
+              // protected-route redirect to /login, and this also clears all demo state.
+              window.location.assign('/register')
+            }}
+            className="font-semibold text-emerald-300 underline-offset-2 hover:underline"
+          >
+            Create your own account →
+          </button>
+        </div>
+      )}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="min-w-0">

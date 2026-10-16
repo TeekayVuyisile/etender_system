@@ -4,6 +4,7 @@ export type HealthResponse = {
   status: string
   app: string
   environment: string
+  demo_mode: boolean
 }
 
 export type TokenResponse = {
@@ -18,6 +19,7 @@ export type Team = {
   id: number
   name: string
   plan: Plan
+  is_demo: boolean
   created_at: string
 }
 

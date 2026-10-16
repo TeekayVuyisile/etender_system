@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.db.mongo import mongo_client
 from app.db.session import SessionLocal
 from app.services import sync_job
-from app.services.sync_job import SyncScheduler, reminder_job
+from app.services.sync_job import SyncScheduler, demo_upkeep_job, reminder_job
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sync_job.scheduler.start()
         sync_job.reminders = reminder_job(SessionLocal)
         sync_job.reminders.start()
+    if settings.demo_mode_enabled:
+        sync_job.demo_upkeep = demo_upkeep_job(SessionLocal)
+        sync_job.demo_upkeep.start()
     yield
-    for job in (sync_job.scheduler, sync_job.reminders):
+    for job in (sync_job.scheduler, sync_job.reminders, sync_job.demo_upkeep):
         if job:
             job.stop()
     mongo_client.close()

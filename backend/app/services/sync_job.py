@@ -169,3 +169,12 @@ def reminder_job(session_factory: Callable[[], Session]) -> RecurringJob:
 
 
 reminders: RecurringJob | None = None  # set when in-app reminders are running
+
+
+def demo_upkeep_job(session_factory: Callable[[], Session]) -> RecurringJob:
+    from app.services.demo import run_demo_upkeep
+
+    return RecurringJob("demo-upkeep", timedelta(hours=1), lambda: run_demo_upkeep(session_factory))
+
+
+demo_upkeep: RecurringJob | None = None  # set when demo mode upkeep runs in-app

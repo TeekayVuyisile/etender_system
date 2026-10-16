@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router'
 
+import { DemoButton } from '../auth/DemoButton'
 import { useAuth } from '../auth/useAuth'
 import { AuthLayout } from '../components/AuthLayout'
 import { ErrorAlert } from '../components/ui/Alert'
@@ -86,6 +87,7 @@ export function RegisterPage() {
           Create account
         </Button>
       </form>
+      <DemoButton />
     </AuthLayout>
   )
 }
