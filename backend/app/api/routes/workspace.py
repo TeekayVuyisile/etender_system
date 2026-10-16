@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 
-from app.api.deps import Activity, CurrentUser, DbSession
+from app.api.deps import Activity, CurrentUser, DbSession, require_feature
 from app.models import (
     Tender,
+    User,
     UserRole,
     WorkspaceNote,
     WorkspaceStatus,
@@ -27,8 +28,10 @@ from app.schemas.workspace import (
     WorkspaceListResponse,
     WorkspaceUpdate,
 )
+from app.services import exports
 from app.services import workspace as service
 from app.services.match_store import MatchStore, get_match_store
+from app.services.plans import limits_for
 from app.services.summary_store import SummaryStore, get_summary_store
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
@@ -55,8 +58,9 @@ def list_workspace(
     """The team's saved tenders, most relevant first, with counts per status."""
     items = service.list_entries(db, user.team_id, status_filter)
     tender_ids = [item.tender.id for item in items]
-    summaries = store.get_many(tender_ids)
-    scores = matches.get_many(user.team_id, tender_ids)
+    limits = limits_for(user.team)
+    summaries = store.get_many(tender_ids) if limits.ai_summaries else {}
+    scores = matches.get_many(user.team_id, tender_ids) if limits.readiness_checks else {}
     for item in items:
         item.ai_summary = service.summary_text(summaries.get(item.tender.id))
         item.match_score = (scores.get(item.tender.id) or {}).get("score")
@@ -87,6 +91,52 @@ def list_my_tasks(user: CurrentUser, db: DbSession) -> list[MyTaskRead]:
         )
         for task, tender in service.my_open_tasks(db, user)
     ]
+
+
+@router.get("/export")
+def export_workspace(
+    user: Annotated[User, Depends(require_feature("exports"))],
+    db: DbSession,
+    store: Annotated[SummaryStore, Depends(get_summary_store)],
+    matches: Annotated[MatchStore, Depends(get_match_store)],
+    activity: Activity,
+    background_tasks: BackgroundTasks,
+    export_format: Annotated[Literal["csv", "pdf"], Query(alias="format")] = "csv",
+) -> Response:
+    """Download the workspace as a CSV spreadsheet or PDF report (Pro plan)."""
+    items = service.list_entries(db, user.team_id, None)
+    tender_ids = [item.tender.id for item in items]
+    summaries = store.get_many(tender_ids)
+    results = matches.get_many(user.team_id, tender_ids)
+    rows = []
+    for item in items:
+        item.ai_summary = service.summary_text(summaries.get(item.tender.id))
+        result = results.get(item.tender.id) or {}
+        item.match_score = result.get("score")
+        rows.append(exports.ReportRow(entry=item, verdict=result.get("verdict")))
+    rows.sort(key=lambda r: (r.entry.match_score is None, -(r.entry.match_score or 0)))
+
+    now = datetime.now(UTC)
+    stamp = f"{now:%Y%m%d}"
+    if export_format == "pdf":
+        content = exports.build_pdf(user.team.name, rows, now)
+        media_type, filename = "application/pdf", f"workspace-report-{stamp}.pdf"
+    else:
+        content = exports.build_csv(rows)
+        media_type, filename = "text/csv; charset=utf-8", f"workspace-{stamp}.csv"
+
+    background_tasks.add_task(
+        activity.log,
+        "workspace.exported",
+        user_id=user.id,
+        team_id=user.team_id,
+        details={"format": export_format, "entries": len(rows)},
+    )
+    return Response(
+        content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("", response_model=WorkspaceEntryDetail, status_code=status.HTTP_201_CREATED)
@@ -139,8 +189,11 @@ def get_workspace_entry(
     matches: Annotated[MatchStore, Depends(get_match_store)],
 ) -> WorkspaceEntryDetail:
     detail = _detail(service.get_entry(db, entry_id, user.team_id, detail=True))
-    detail.ai_summary = service.summary_text(store.get(detail.tender.id))
-    detail.match_score = (matches.get(user.team_id, detail.tender.id) or {}).get("score")
+    limits = limits_for(user.team)
+    if limits.ai_summaries:
+        detail.ai_summary = service.summary_text(store.get(detail.tender.id))
+    if limits.readiness_checks:
+        detail.match_score = (matches.get(user.team_id, detail.tender.id) or {}).get("score")
     return detail
 
 

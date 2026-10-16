@@ -11,6 +11,7 @@ import {
   formatDateTime,
   readableCase,
 } from '../lib/format'
+import { FeatureGate } from '../plans/UpgradePrompt'
 import { MatchPanel } from '../readiness/MatchPanel'
 import { SummaryPanel } from '../summaries/SummaryPanel'
 import { useTender } from '../tenders/queries'
@@ -110,11 +111,15 @@ export function TenderDetailPage() {
           )}
 
           <Section title="AI summary">
-            <SummaryPanel tenderId={tender.id} />
+            <FeatureGate feature="ai_summaries">
+              <SummaryPanel tenderId={tender.id} />
+            </FeatureGate>
           </Section>
 
           <Section title="Readiness check">
-            <MatchPanel tenderId={tender.id} />
+            <FeatureGate feature="readiness_checks">
+              <MatchPanel tenderId={tender.id} />
+            </FeatureGate>
           </Section>
         </div>
 

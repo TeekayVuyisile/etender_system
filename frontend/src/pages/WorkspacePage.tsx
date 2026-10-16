@@ -4,6 +4,7 @@ import { ErrorAlert } from '../components/ui/Alert'
 import { Spinner } from '../components/ui/Spinner'
 import { getErrorMessage } from '../lib/api'
 import type { WorkspaceEntry, WorkspaceStatus } from '../lib/types'
+import { ExportButtons } from '../workspace/ExportButtons'
 import { useWorkspace } from '../workspace/queries'
 import { STATUS_LABELS, STATUS_ORDER } from '../workspace/statuses'
 import { WorkspaceEntryCard } from '../workspace/WorkspaceEntryCard'
@@ -38,24 +39,37 @@ export function WorkspacePage() {
             Tenders your team has saved, with the best matches first.
           </p>
         </div>
-        <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm">
-          {(['ranked', 'grouped'] as View[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setParam('view', option === 'grouped' ? 'grouped' : null)}
-              className={`rounded-md px-3 py-1.5 font-medium ${
-                view === option ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {option === 'ranked' ? 'Ranked list' : 'Group by status'}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-start gap-3">
+          <ExportButtons />
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm">
+            {(['ranked', 'grouped'] as View[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setParam('view', option === 'grouped' ? 'grouped' : null)}
+                className={`rounded-md px-3 py-1.5 font-medium ${
+                  view === option
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {option === 'ranked' ? 'Ranked list' : 'Group by status'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <nav className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200" aria-label="Status">
-        <StatusTab label="All" count={total} active={status === null} onClick={() => setParam('status', null)} />
+      <nav
+        className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200"
+        aria-label="Status"
+      >
+        <StatusTab
+          label="All"
+          count={total}
+          active={status === null}
+          onClick={() => setParam('status', null)}
+        />
         {STATUS_ORDER.map((s) => (
           <StatusTab
             key={s}
@@ -86,7 +100,8 @@ export function WorkspacePage() {
         </div>
       )}
 
-      {data && data.items.length > 0 &&
+      {data &&
+        data.items.length > 0 &&
         (view === 'grouped' ? (
           <GroupedEntries entries={data.items} />
         ) : (

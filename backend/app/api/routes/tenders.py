@@ -5,16 +5,17 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import Activity, CurrentUser, DbSession
+from app.api.deps import Activity, CurrentUser, DbSession, require_feature
 from app.core.reference import PROVINCES
 from app.db.session import get_session_factory
-from app.models import CompanyProfile, Tender
+from app.models import CompanyProfile, Tender, User
 from app.schemas.readiness import MatchResultResponse
 from app.schemas.summary import TenderSummaryResponse
 from app.schemas.tender import BuyerOption, TenderDetail, TenderSearchResponse
 from app.services import matching
 from app.services.llm import LLMClient, LLMError, get_llm_client
 from app.services.match_store import MatchStore, get_match_store
+from app.services.plans import record_search
 from app.services.summarizer import run_summary_job
 from app.services.summary_store import SummaryStore, get_summary_store, to_response
 from app.services.tender_search import (
@@ -33,7 +34,7 @@ PROVINCE_FILTER_VALUES = {*PROVINCES, NATIONAL}
 
 @router.get("", response_model=TenderSearchResponse)
 def list_tenders(
-    _user: CurrentUser,
+    user: CurrentUser,
     db: DbSession,
     q: Annotated[
         str | None, Query(max_length=200, description="Keywords, e.g. road construction")
@@ -49,7 +50,10 @@ def list_tenders(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TenderSearchResponse:
-    """Search tenders by keyword, then narrow down with filters."""
+    """Search tenders by keyword, then narrow down with filters.
+
+    On the Free plan each distinct search counts towards a weekly limit.
+    """
     unknown = set(province) - PROVINCE_FILTER_VALUES
     if unknown:
         raise HTTPException(
@@ -61,6 +65,20 @@ def list_tenders(
             status.HTTP_422_UNPROCESSABLE_CONTENT, detail="closing_from must be before closing_to"
         )
 
+    record_search(
+        db,
+        user.team,
+        {
+            "q": q,
+            "province": province,
+            "buyer": buyer,
+            "closing_from": closing_from,
+            "closing_to": closing_to,
+            "min_value": min_value,
+            "max_value": max_value,
+            "status": tender_status,
+        },
+    )
     filters = TenderFilters(
         q=q,
         provinces=province,
@@ -113,7 +131,7 @@ LLM = Annotated[LLMClient, Depends(require_llm)]
 @router.get("/{tender_id}/summary", response_model=TenderSummaryResponse)
 def get_tender_summary(
     tender_id: int,
-    _user: CurrentUser,
+    _user: Annotated[User, Depends(require_feature("ai_summaries"))],
     store: Annotated[SummaryStore, Depends(get_summary_store)],
 ) -> TenderSummaryResponse:
     """The AI summary for a tender, or its status if it's still being generated."""
@@ -127,7 +145,7 @@ def get_tender_summary(
 )
 def generate_tender_summary(
     tender_id: int,
-    user: CurrentUser,
+    user: Annotated[User, Depends(require_feature("ai_summaries"))],
     db: DbSession,
     background_tasks: BackgroundTasks,
     activity: Activity,
@@ -166,7 +184,11 @@ Matches = Annotated[MatchStore, Depends(get_match_store)]
 
 @router.get("/{tender_id}/match", response_model=MatchResultResponse)
 def get_tender_match(
-    tender_id: int, user: CurrentUser, db: DbSession, summaries: Summaries, matches: Matches
+    tender_id: int,
+    user: Annotated[User, Depends(require_feature("readiness_checks"))],
+    db: DbSession,
+    summaries: Summaries,
+    matches: Matches,
 ) -> MatchResultResponse:
     """Your team's latest readiness check for this tender."""
     doc = matches.get(user.team_id, tender_id)
@@ -180,7 +202,7 @@ def get_tender_match(
 @router.post("/{tender_id}/match", response_model=MatchResultResponse)
 def match_tender(
     tender_id: int,
-    user: CurrentUser,
+    user: Annotated[User, Depends(require_feature("readiness_checks"))],
     db: DbSession,
     summaries: Summaries,
     matches: Matches,

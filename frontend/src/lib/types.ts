@@ -278,3 +278,28 @@ export type MatchResult = {
   checked_by: string | null
   outdated: boolean
 }
+
+export type PlanFeature = 'ai_summaries' | 'readiness_checks' | 'exports'
+
+export type PlanDetails = {
+  plan: Plan
+  name: string
+  price_label: string
+  seats: number | null
+  weekly_searches: number | null
+  ai_summaries: boolean
+  readiness_checks: boolean
+  exports: boolean
+}
+
+export type TeamPlan = {
+  current: PlanDetails
+  usage: {
+    seats_used: number
+    seats_limit: number | null
+    searches_used: number | null
+    searches_limit: number | null
+    searches_reset_on: string
+  }
+  available: PlanDetails[]
+}
