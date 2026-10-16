@@ -3,5 +3,24 @@ from app.models.company_profile import CompanyProfile
 from app.models.team import Plan, Team
 from app.models.tender import Tender
 from app.models.user import User, UserRole
+from app.models.workspace import (
+    WorkspaceNote,
+    WorkspaceStatus,
+    WorkspaceStatusChange,
+    WorkspaceTask,
+    WorkspaceTender,
+)
 
-__all__ = ["CompanyProfile", "Plan", "Team", "Tender", "User", "UserRole"]
+__all__ = [
+    "CompanyProfile",
+    "Plan",
+    "Team",
+    "Tender",
+    "User",
+    "UserRole",
+    "WorkspaceNote",
+    "WorkspaceStatus",
+    "WorkspaceStatusChange",
+    "WorkspaceTask",
+    "WorkspaceTender",
+]

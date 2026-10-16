@@ -12,6 +12,7 @@ import {
   readableCase,
 } from '../lib/format'
 import { useTender } from '../tenders/queries'
+import { SaveTenderButton } from '../workspace/SaveTenderButton'
 
 export function TenderDetailPage() {
   const { tenderId } = useParams()
@@ -46,6 +47,9 @@ export function TenderDetailPage() {
           {readableCase(tender.title)}
         </h1>
         <p className="mt-1 text-slate-600">{readableCase(tender.buyer_name)}</p>
+        <div className="mt-4">
+          <SaveTenderButton tenderId={tender.id} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

@@ -97,3 +97,29 @@ export function isoDate(date: Date): string {
   const offset = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offset).toISOString().slice(0, 10)
 }
+
+const relativeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+
+/** "just now", "5 minutes ago", "yesterday", "3 days ago"... */
+export function relativeTime(value: string): string {
+  const seconds = (new Date(value).getTime() - Date.now()) / 1000
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31_536_000],
+    ['month', 2_592_000],
+    ['week', 604_800],
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ]
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) {
+      return relativeFormatter.format(Math.round(seconds / size), unit)
+    }
+  }
+  return 'just now'
+}
+
+/** True if a YYYY-MM-DD due date has fully passed (it counts as due until the end of the day). */
+export function isOverdue(dueDate: string | null): boolean {
+  return dueDate !== null && new Date(`${dueDate}T23:59:59`).getTime() < Date.now()
+}

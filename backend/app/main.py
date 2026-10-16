@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, company_profile, health, team, tenders
+from app.api.routes import auth, company_profile, health, team, tenders, workspace
 from app.core.config import settings
 from app.db.mongo import mongo_client
 
@@ -37,3 +37,4 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(team.router, prefix="/api")
 app.include_router(company_profile.router, prefix="/api")
 app.include_router(tenders.router, prefix="/api")
+app.include_router(workspace.router, prefix="/api")

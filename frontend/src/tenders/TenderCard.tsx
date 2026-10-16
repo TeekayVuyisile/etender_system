@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 
 import { deadlineLabel, formatDate, readableCase, type Urgency } from '../lib/format'
 import type { TenderListItem } from '../lib/types'
+import { SaveTenderButton } from '../workspace/SaveTenderButton'
 
 const urgencyStyles: Record<Urgency, string> = {
   closed: 'bg-slate-100 text-slate-500',
@@ -36,7 +37,8 @@ export function TenderCard({ tender }: { tender: TenderListItem }) {
       </h2>
       <p className="mt-1 text-sm text-slate-600">{readableCase(tender.buyer_name)}</p>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
         <span>📍 {tender.province ?? 'Province not specified'}</span>
         <span>🗓 Closes {formatDate(tender.closing_at)}</span>
         {tender.category && <span className="max-w-xs truncate">🏷 {tender.category}</span>}
@@ -48,6 +50,8 @@ export function TenderCard({ tender }: { tender: TenderListItem }) {
         {tender.briefing_compulsory && (
           <span className="font-medium text-amber-700">Compulsory briefing</span>
         )}
+        </div>
+        <SaveTenderButton tenderId={tender.id} size="sm" />
       </div>
     </article>
   )

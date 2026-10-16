@@ -139,3 +139,81 @@ export type BuyerOption = {
   name: string
   open_tenders: number
 }
+
+export type WorkspaceStatus = 'pending' | 'interested' | 'preparing' | 'submitted' | 'not_eligible'
+
+export type UserSummary = {
+  id: number
+  full_name: string
+}
+
+export type WorkspaceEntry = {
+  id: number
+  status: WorkspaceStatus
+  tender: TenderListItem
+  saved_by: UserSummary | null
+  status_changed_by: UserSummary | null
+  status_changed_at: string
+  created_at: string
+  note_count: number
+  open_task_count: number
+  ai_summary: string | null
+  match_score: number | null
+}
+
+export type WorkspaceListResponse = {
+  items: WorkspaceEntry[]
+  status_counts: Record<WorkspaceStatus, number>
+}
+
+export type StatusChange = {
+  id: number
+  from_status: WorkspaceStatus | null
+  to_status: WorkspaceStatus
+  changed_by: UserSummary | null
+  created_at: string
+}
+
+export type WorkspaceNote = {
+  id: number
+  body: string
+  author: UserSummary | null
+  created_at: string
+  updated_at: string
+}
+
+export type WorkspaceTask = {
+  id: number
+  entry_id: number
+  title: string
+  assignee: UserSummary | null
+  due_date: string | null
+  is_done: boolean
+  completed_at: string | null
+  created_by: UserSummary | null
+  created_at: string
+}
+
+export type WorkspaceEntryDetail = WorkspaceEntry & {
+  status_changes: StatusChange[]
+  notes: WorkspaceNote[]
+  tasks: WorkspaceTask[]
+}
+
+export type MyTask = WorkspaceTask & {
+  tender_title: string
+  tender_closing_at: string | null
+}
+
+export type SavedTenderRef = {
+  tender_id: number
+  entry_id: number
+  status: WorkspaceStatus
+}
+
+export type TaskInput = {
+  title?: string
+  assignee_id?: number | null
+  due_date?: string | null
+  is_done?: boolean
+}

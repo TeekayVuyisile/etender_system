@@ -6,6 +6,7 @@ import { Button } from './ui/Button'
 const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/tenders', label: 'Tenders' },
+  { to: '/workspace', label: 'Workspace' },
   { to: '/company-profile', label: 'Company profile' },
 ]
 
@@ -34,7 +35,7 @@ export function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end
+              end={item.to === '/'}
               className={({ isActive }) =>
                 `border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap ${
                   isActive
