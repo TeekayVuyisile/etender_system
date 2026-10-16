@@ -140,6 +140,17 @@ API keys are stored as SHA-256 hashes and shown once on creation. Because neithe
 source publishes award values, spend-by-buyer reports advertised activity and known values
 rather than actual spend.
 
+## Notifications
+
+In-app notifications appear under the bell in the header: task assignments, status changes,
+new notes, finished AI summaries, and reminders when a saved tender closes within 3 days or a
+compulsory briefing is within 2 days. Reminders come from an hourly job (alongside the tender
+sync) and carry dedupe keys, so each one is sent once.
+
+They're stored in MongoDB (`notifications`) and delivered through a `Notifier` with pluggable
+channels. Only the in-app channel exists today; an email channel can be added without
+changing the code that raises notifications.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+

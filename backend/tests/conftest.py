@@ -28,6 +28,13 @@ from app.services.analytics import get_analytics_cache  # noqa: E402
 from app.services.api_keys import rate_limiter  # noqa: E402
 from app.services.llm import LLMResponse  # noqa: E402
 from app.services.match_store import get_match_store  # noqa: E402
+from app.services.notifications import (  # noqa: E402
+    InAppChannel,
+    Notification,
+    Notifier,
+    get_notification_store,
+    get_notifier,
+)
 from app.services.summary_store import get_summary_store  # noqa: E402
 from app.services.sync_runs import get_sync_run_store  # noqa: E402
 
@@ -128,6 +135,44 @@ class InMemorySyncRunStore:
         return next((r for r in reversed(self.runs) if r["status"] == "success"), None)
 
 
+class InMemoryNotificationStore:
+    """Stands in for the MongoDB notification store (including the dedupe-key uniqueness)."""
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+
+    def add(self, notifications: list[Notification]) -> int:
+        keys = {d.get("dedupe_key") for d in self.docs} - {None}
+        added = 0
+        for n in notifications:
+            doc = n.as_document()
+            if doc.get("dedupe_key") in keys:
+                continue
+            doc["_id"] = f"{len(self.docs) + 1:024x}"
+            keys.add(doc.get("dedupe_key"))
+            self.docs.append(doc)
+            added += 1
+        return added
+
+    def list(self, user_id: int, unread_only: bool, limit: int) -> list[dict[str, Any]]:
+        mine = [d for d in self.docs if d["user_id"] == user_id]
+        if unread_only:
+            mine = [d for d in mine if d["read_at"] is None]
+        return list(reversed(mine))[:limit]
+
+    def unread_count(self, user_id: int) -> int:
+        return len(self.list(user_id, True, 10_000))
+
+    def mark_read(self, user_id: int, notification_id: str | None = None) -> int:
+        marked = 0
+        for d in self.docs:
+            if d["user_id"] == user_id and d["read_at"] is None:
+                if notification_id is None or d["_id"] == notification_id:
+                    d["read_at"] = datetime.now(UTC)
+                    marked += 1
+        return marked
+
+
 class FakeLLM:
     """Returns a canned JSON response and records the prompts it received."""
 
@@ -203,6 +248,11 @@ def sync_runs() -> InMemorySyncRunStore:
 
 
 @pytest.fixture
+def notification_store() -> InMemoryNotificationStore:
+    return InMemoryNotificationStore()
+
+
+@pytest.fixture
 def client(
     db: Session,
     activity: FakeActivityLogger,
@@ -211,6 +261,7 @@ def client(
     match_store: InMemoryMatchStore,
     analytics_cache: InMemoryCache,
     sync_runs: InMemorySyncRunStore,
+    notification_store: InMemoryNotificationStore,
 ) -> Iterator[TestClient]:
     rate_limiter._hits.clear()  # key IDs restart in every test's fresh database
     app.dependency_overrides[get_db] = lambda: db
@@ -220,6 +271,8 @@ def client(
     app.dependency_overrides[get_match_store] = lambda: match_store
     app.dependency_overrides[get_analytics_cache] = lambda: analytics_cache
     app.dependency_overrides[get_sync_run_store] = lambda: sync_runs
+    app.dependency_overrides[get_notification_store] = lambda: notification_store
+    app.dependency_overrides[get_notifier] = lambda: Notifier([InAppChannel(notification_store)])
     app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
     with TestClient(app) as test_client:
         yield test_client

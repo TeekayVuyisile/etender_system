@@ -7,12 +7,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 
-from app.api.routes import auth, company_profile, health, public, team, tenders, workspace
+from app.api.routes import (
+    auth,
+    company_profile,
+    health,
+    notifications,
+    public,
+    team,
+    tenders,
+    workspace,
+)
 from app.core.config import settings
 from app.db.mongo import mongo_client
 from app.db.session import SessionLocal
 from app.services import sync_job
-from app.services.sync_job import SyncScheduler
+from app.services.sync_job import SyncScheduler, reminder_job
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +36,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.sync_schedule_enabled:
         sync_job.scheduler = SyncScheduler(SessionLocal)
         sync_job.scheduler.start()
+        sync_job.reminders = reminder_job(SessionLocal)
+        sync_job.reminders.start()
     yield
-    if sync_job.scheduler:
-        sync_job.scheduler.stop()
+    for job in (sync_job.scheduler, sync_job.reminders):
+        if job:
+            job.stop()
     mongo_client.close()
 
 
@@ -59,6 +71,7 @@ OPENAPI_TAGS = [
     {"name": "company profile", "description": "The company details used for matching."},
     {"name": "tenders", "description": "Search, AI summaries and readiness checks."},
     {"name": "workspace", "description": "Saved tenders, statuses, notes, tasks and exports."},
+    {"name": "notifications", "description": "In-app notifications for the signed-in user."},
     {"name": "health", "description": "Service status."},
 ]
 
@@ -101,3 +114,4 @@ app.include_router(company_profile.router, prefix="/api")
 app.include_router(tenders.router, prefix="/api")
 app.include_router(workspace.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")

@@ -120,3 +120,52 @@ class SyncScheduler:
 
 
 scheduler: SyncScheduler | None = None  # set when the in-app scheduler is running
+
+
+class RecurringJob:
+    """Calls `job()` every `interval` in a background thread, starting straight away.
+
+    Used for lightweight jobs such as notification reminders, which are safe to repeat.
+    """
+
+    def __init__(self, name: str, interval: timedelta, job: Callable[[], object]) -> None:
+        self.name = name
+        self.interval = interval
+        self.job = job
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def run_forever(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self.job()
+            except Exception:
+                logger.exception("Recurring job %s failed", self.name)
+            if self._stop.wait(self.interval.total_seconds()):
+                break
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self.run_forever, name=self.name, daemon=True)
+        self._thread.start()
+
+    def stop(self, timeout: float = 5) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout)
+
+
+REMINDER_INTERVAL = timedelta(hours=1)
+
+
+def reminder_job(session_factory: Callable[[], Session]) -> RecurringJob:
+    from app.services.notification_events import run_reminders
+    from app.services.notifications import get_notifier
+
+    return RecurringJob(
+        "notification-reminders",
+        REMINDER_INTERVAL,
+        lambda: run_reminders(session_factory, get_notifier()),
+    )
+
+
+reminders: RecurringJob | None = None  # set when in-app reminders are running

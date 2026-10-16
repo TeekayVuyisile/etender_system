@@ -29,12 +29,16 @@ from app.schemas.workspace import (
     WorkspaceUpdate,
 )
 from app.services import exports
+from app.services import notification_events as events
 from app.services import workspace as service
 from app.services.match_store import MatchStore, get_match_store
+from app.services.notifications import Notifier, get_notifier
 from app.services.plans import limits_for
 from app.services.summary_store import SummaryStore, get_summary_store
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
+
+Notify = Annotated[Notifier, Depends(get_notifier)]
 
 
 def _detail(entry: WorkspaceTender) -> WorkspaceEntryDetail:
@@ -204,6 +208,7 @@ def update_status(
     user: CurrentUser,
     db: DbSession,
     activity: Activity,
+    notifier: Notify,
     background_tasks: BackgroundTasks,
 ) -> WorkspaceEntryDetail:
     entry = service.get_entry(db, entry_id, user.team_id)
@@ -211,6 +216,10 @@ def update_status(
     if data.status != old_status:
         service.change_status(db, entry, data.status, user)
         db.commit()
+        background_tasks.add_task(
+            notifier.send,
+            events.status_changed(db, entry_id, entry.tender.title, data.status, user),
+        )
         background_tasks.add_task(
             activity.log,
             "workspace.status_changed",
@@ -254,12 +263,16 @@ def add_note(
     user: CurrentUser,
     db: DbSession,
     activity: Activity,
+    notifier: Notify,
     background_tasks: BackgroundTasks,
 ) -> WorkspaceNote:
-    service.get_entry(db, entry_id, user.team_id)
+    entry = service.get_entry(db, entry_id, user.team_id)
     note = WorkspaceNote(entry_id=entry_id, author_id=user.id, body=data.body)
     db.add(note)
     db.commit()
+    background_tasks.add_task(
+        notifier.send, events.note_added(db, entry_id, entry.tender.title, data.body, user)
+    )
     background_tasks.add_task(
         activity.log,
         "workspace.note_added",
@@ -303,9 +316,10 @@ def add_task(
     user: CurrentUser,
     db: DbSession,
     activity: Activity,
+    notifier: Notify,
     background_tasks: BackgroundTasks,
 ) -> WorkspaceTask:
-    service.get_entry(db, entry_id, user.team_id)
+    entry = service.get_entry(db, entry_id, user.team_id)
     if data.assignee_id is not None:
         service.team_member(db, data.assignee_id, user.team_id)
     task = WorkspaceTask(
@@ -317,6 +331,11 @@ def add_task(
     )
     db.add(task)
     db.commit()
+    if data.assignee_id is not None:
+        background_tasks.add_task(
+            notifier.send,
+            events.task_assigned(entry_id, entry.tender.title, task.title, data.assignee_id, user),
+        )
     background_tasks.add_task(
         activity.log,
         "workspace.task_added",
@@ -329,10 +348,18 @@ def add_task(
 
 @router.patch("/{entry_id}/tasks/{task_id}", response_model=TaskRead)
 def update_task(
-    entry_id: int, task_id: int, data: TaskUpdate, user: CurrentUser, db: DbSession
+    entry_id: int,
+    task_id: int,
+    data: TaskUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    notifier: Notify,
+    background_tasks: BackgroundTasks,
 ) -> WorkspaceTask:
     task = service.get_task(db, entry_id, task_id, user.team_id)
     changes = data.model_dump(exclude_unset=True)
+    new_assignee = changes.get("assignee_id")
+    reassigned = new_assignee is not None and new_assignee != task.assignee_id
 
     if changes.get("assignee_id") is not None:
         service.team_member(db, changes["assignee_id"], user.team_id)
@@ -346,6 +373,12 @@ def update_task(
     for field, value in changes.items():
         setattr(task, field, value)
     db.commit()
+    if reassigned:
+        tender_title = service.get_entry(db, entry_id, user.team_id).tender.title
+        background_tasks.add_task(
+            notifier.send,
+            events.task_assigned(entry_id, tender_title, task.title, new_assignee, user),
+        )
     db.expire_all()
     return service.get_task(db, entry_id, task_id, user.team_id)
 

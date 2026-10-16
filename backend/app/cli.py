@@ -1,7 +1,7 @@
 """Command-line tasks. Run from the backend folder, e.g.:
 
 python -m app.cli sync-tenders --days 30   # one sync now
-python -m app.cli scheduler                # keep syncing on a schedule (worker process)
+python -m app.cli scheduler                # sync + reminders on a schedule (worker process)
 """
 
 import argparse
@@ -11,7 +11,7 @@ from datetime import timedelta
 
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.services.sync_job import SyncScheduler, run_sync_job
+from app.services.sync_job import SyncScheduler, reminder_job, run_sync_job
 
 logger = logging.getLogger("app.cli")
 
@@ -50,11 +50,19 @@ def main() -> None:
         scheduler = SyncScheduler(
             SessionLocal, interval=timedelta(hours=args.interval_hours), days=args.days
         )
+        reminders = reminder_job(SessionLocal)
+        reminders.start()  # deadline/briefing reminders, hourly, in a background thread
+
+        def stop(*_: object) -> None:
+            scheduler.stop(timeout=0)
+            reminders.stop(timeout=0)
+
         # Stop cleanly on Ctrl+C or `docker stop` (SIGTERM).
-        signal.signal(signal.SIGTERM, lambda *_: scheduler.stop(timeout=0))
+        signal.signal(signal.SIGTERM, stop)
         try:
             scheduler.run_forever()
         except KeyboardInterrupt:
+            stop()
             logger.info("Scheduler stopped")
 
 

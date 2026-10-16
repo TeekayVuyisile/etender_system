@@ -329,3 +329,19 @@ export type SyncStatus = {
   interval_hours: number
   next_run_at: string | null
 }
+
+export type AppNotification = {
+  id: string
+  type: string
+  title: string
+  body: string
+  link: string | null
+  actor_name: string | null
+  created_at: string
+  read_at: string | null
+}
+
+export type NotificationList = {
+  items: AppNotification[]
+  unread_count: number
+}
