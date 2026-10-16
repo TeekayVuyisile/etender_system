@@ -46,3 +46,44 @@ export type MemberCreateData = {
   email: string
   password: string
 }
+
+export type CidbGrading = {
+  class_code: string
+  grade: number
+}
+
+export type CompanyProfileInput = {
+  industry_sector: string
+  services: string[]
+  cidb_gradings: CidbGrading[]
+  bbbee_level: number | null
+  certifications: string[]
+  provinces: string[]
+  years_of_experience: number
+  contact_name: string
+  contact_email: string
+  contact_phone: string
+  website: string | null
+  physical_address: string | null
+}
+
+export type CompanyProfile = CompanyProfileInput & {
+  id: number
+  team_id: number
+  created_at: string
+  updated_at: string
+}
+
+export type Option = {
+  value: string
+  label: string
+}
+
+export type ProfileOptions = {
+  industry_sectors: string[]
+  provinces: string[]
+  cidb_classes: Option[]
+  cidb_grades: number[]
+  bbbee_levels: number[]
+  certification_suggestions: string[]
+}

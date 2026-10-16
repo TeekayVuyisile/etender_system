@@ -1,10 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 
 import { AuthProvider } from './auth/AuthProvider'
-import { GuestOnly, RequireAuth } from './auth/RouteGuards'
+import { GuestOnly, RequireAuth, RequireCompanyProfile } from './auth/RouteGuards'
 import { AppLayout } from './components/AppLayout'
+import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { RegisterPage } from './pages/RegisterPage'
 
 function App() {
@@ -18,8 +20,13 @@ function App() {
           </Route>
 
           <Route element={<RequireAuth />}>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
+
+            <Route element={<RequireCompanyProfile />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/company-profile" element={<CompanyProfilePage />} />
+              </Route>
             </Route>
           </Route>
 

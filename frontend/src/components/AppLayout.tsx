@@ -1,7 +1,12 @@
-import { Outlet } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
 import { Button } from './ui/Button'
+
+const navItems = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/company-profile', label: 'Company profile' },
+]
 
 export function AppLayout() {
   const { user, logout } = useAuth()
@@ -23,6 +28,24 @@ export function AppLayout() {
             </Button>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 sm:px-6">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end
+              className={({ isActive }) =>
+                `border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap ${
+                  isActive
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <Outlet />
