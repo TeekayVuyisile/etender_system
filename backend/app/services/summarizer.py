@@ -142,8 +142,12 @@ def run_summary_job(
     store: SummaryStore,
     llm: LLMClient,
     http_client_factory: Callable[[], httpx.Client] = default_http_client,
+    on_ready: Callable[[Tender], None] | None = None,
 ) -> None:
-    """Background job: generate and store the summary for one tender."""
+    """Background job: generate and store the summary for one tender.
+
+    `on_ready` is called with the tender once the summary is saved (e.g. to notify someone).
+    """
     try:
         with session_factory() as db, http_client_factory() as client:
             tender = db.get(Tender, tender_id)
@@ -161,6 +165,8 @@ def run_summary_job(
                 tender.estimated_value = Decimal(str(round(value, 2)))
                 db.commit()
         store.save_ready(tender_id, result)
+        if on_ready:
+            on_ready(tender)
     except LLMError as error:
         store.save_failed(tender_id, str(error))
     except Exception:

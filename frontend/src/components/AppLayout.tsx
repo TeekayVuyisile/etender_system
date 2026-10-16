@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
+import { NotificationBell } from '../notifications/NotificationBell'
 import { Button } from './ui/Button'
 
 const navItems = [
@@ -35,6 +36,7 @@ export function AppLayout() {
                 {user.team.plan} plan
               </Link>
             )}
+            <NotificationBell />
             <span className="hidden text-sm text-slate-600 sm:inline">{user?.full_name}</span>
             <Button variant="secondary" onClick={logout}>
               Sign out
