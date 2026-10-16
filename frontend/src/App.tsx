@@ -1,18 +1,32 @@
-import { ApiStatus } from './components/ApiStatus'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+
+import { AuthProvider } from './auth/AuthProvider'
+import { GuestOnly, RequireAuth } from './auth/RouteGuards'
+import { AppLayout } from './components/AppLayout'
+import { DashboardPage } from './pages/DashboardPage'
+import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 
 function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="max-w-xl text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900">Tender Insight Hub</h1>
-        <p className="mt-4 text-lg text-slate-600">
-          Discover, understand and assess South African public tenders.
-        </p>
-        <div className="mt-8">
-          <ApiStatus />
-        </div>
-      </div>
-    </main>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route element={<GuestOnly />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
+
+          <Route element={<RequireAuth />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
 

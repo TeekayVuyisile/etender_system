@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,7 +7,6 @@ class Settings(BaseSettings):
 
     Each field is read from an environment variable with the same name
     (case-insensitive), falling back to the .env file, then to the default below.
-    Example: setting APP_NAME=Foo in .env overrides app_name.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -15,6 +15,23 @@ class Settings(BaseSettings):
     environment: str = "development"
     # Frontend origins allowed to call this API from a browser (Vite runs on port 5173)
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    database_url: str = "sqlite:///./local.db"
+
+    mongodb_url: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "tender_insight_hub"
+
+    jwt_secret_key: str = "dev-only-insecure-secret-change-me-in-env"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, value: str) -> str:
+        # Neon gives "postgresql://..." URLs; SQLAlchemy needs to be told to use psycopg 3.
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
 
 
 settings = Settings()
