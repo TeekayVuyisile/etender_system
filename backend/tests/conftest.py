@@ -25,6 +25,7 @@ from app.main import app  # noqa: E402
 from app.models import Tender  # noqa: E402
 from app.services.activity import get_activity_logger  # noqa: E402
 from app.services.llm import LLMResponse  # noqa: E402
+from app.services.match_store import get_match_store  # noqa: E402
 from app.services.summary_store import get_summary_store  # noqa: E402
 
 # StaticPool keeps a single connection, so the in-memory database survives between sessions.
@@ -67,6 +68,24 @@ class InMemorySummaryStore:
 
     def save_failed(self, tender_id: int, error: str) -> None:
         self.docs[tender_id] = {**self.docs.get(tender_id, {}), "status": "failed", "error": error}
+
+
+class InMemoryMatchStore:
+    """Stands in for the MongoDB match store in tests."""
+
+    def __init__(self) -> None:
+        self.docs: dict[tuple[int, int], dict[str, Any]] = {}
+
+    def get(self, team_id: int, tender_id: int) -> dict[str, Any] | None:
+        return self.docs.get((team_id, tender_id))
+
+    def get_many(self, team_id: int, tender_ids: list[int]) -> dict[int, dict[str, Any]]:
+        return {t: self.docs[(team_id, t)] for t in tender_ids if (team_id, t) in self.docs}
+
+    def save(self, team_id: int, tender_id: int, result: dict[str, Any]) -> dict[str, Any]:
+        doc = {**result, "team_id": team_id, "tender_id": tender_id, "checked_at": NOW}
+        self.docs[(team_id, tender_id)] = doc
+        return doc
 
 
 class FakeLLM:
@@ -129,16 +148,23 @@ def llm() -> FakeLLM:
 
 
 @pytest.fixture
+def match_store() -> InMemoryMatchStore:
+    return InMemoryMatchStore()
+
+
+@pytest.fixture
 def client(
     db: Session,
     activity: FakeActivityLogger,
     summary_store: InMemorySummaryStore,
     llm: FakeLLM,
+    match_store: InMemoryMatchStore,
 ) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_activity_logger] = lambda: activity
     app.dependency_overrides[get_summary_store] = lambda: summary_store
     app.dependency_overrides[require_llm] = lambda: llm
+    app.dependency_overrides[get_match_store] = lambda: match_store
     app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
     with TestClient(app) as test_client:
         yield test_client

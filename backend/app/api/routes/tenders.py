@@ -2,15 +2,19 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import Activity, CurrentUser, DbSession
 from app.core.reference import PROVINCES
 from app.db.session import get_session_factory
-from app.models import Tender
+from app.models import CompanyProfile, Tender
+from app.schemas.readiness import MatchResultResponse
 from app.schemas.summary import TenderSummaryResponse
 from app.schemas.tender import BuyerOption, TenderDetail, TenderSearchResponse
+from app.services import matching
 from app.services.llm import LLMClient, LLMError, get_llm_client
+from app.services.match_store import MatchStore, get_match_store
 from app.services.summarizer import run_summary_job
 from app.services.summary_store import SummaryStore, get_summary_store, to_response
 from app.services.tender_search import (
@@ -154,3 +158,45 @@ def generate_tender_summary(
             details={"tender_id": tender_id, "refresh": refresh},
         )
     return to_response(tender_id, store.get(tender_id))
+
+
+Summaries = Annotated[SummaryStore, Depends(get_summary_store)]
+Matches = Annotated[MatchStore, Depends(get_match_store)]
+
+
+@router.get("/{tender_id}/match", response_model=MatchResultResponse)
+def get_tender_match(
+    tender_id: int, user: CurrentUser, db: DbSession, summaries: Summaries, matches: Matches
+) -> MatchResultResponse:
+    """Your team's latest readiness check for this tender."""
+    doc = matches.get(user.team_id, tender_id)
+    if doc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="This tender hasn't been matched yet")
+    summary = summaries.get(tender_id) or {}
+    profile = db.scalar(select(CompanyProfile).where(CompanyProfile.team_id == user.team_id))
+    return matching.to_response(doc, profile, summary.get("updated_at"))
+
+
+@router.post("/{tender_id}/match", response_model=MatchResultResponse)
+def match_tender(
+    tender_id: int,
+    user: CurrentUser,
+    db: DbSession,
+    summaries: Summaries,
+    matches: Matches,
+    activity: Activity,
+    background_tasks: BackgroundTasks,
+) -> MatchResultResponse:
+    """ "Match This Tender": score the tender's requirements against your company profile."""
+    tender = db.get(Tender, tender_id)
+    if tender is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tender not found")
+    result = matching.run_match(db, tender, user, summaries, matches)
+    background_tasks.add_task(
+        activity.log,
+        "tender.match_checked",
+        user_id=user.id,
+        team_id=user.team_id,
+        details={"tender_id": tender_id, "score": result.score, "verdict": result.verdict},
+    )
+    return result

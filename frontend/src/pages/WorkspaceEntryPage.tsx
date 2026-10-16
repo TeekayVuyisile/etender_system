@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { getErrorMessage } from '../lib/api'
 import { deadlineLabel, formatDateTime, readableCase } from '../lib/format'
+import { MatchPanel } from '../readiness/MatchPanel'
 import { SummaryPanel } from '../summaries/SummaryPanel'
 import { NotesPanel } from '../workspace/NotesPanel'
 import { useRemoveEntry, useWorkspaceEntry } from '../workspace/queries'
@@ -97,6 +98,9 @@ export function WorkspaceEntryPage() {
         <div className="space-y-6 lg:col-span-2">
           <Panel title="Status">
             <StatusPanel entry={entry} />
+          </Panel>
+          <Panel title="Readiness check">
+            <MatchPanel tenderId={tender.id} />
           </Panel>
           <Panel title="AI summary">
             <SummaryPanel tenderId={tender.id} />

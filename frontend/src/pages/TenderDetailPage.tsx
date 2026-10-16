@@ -11,6 +11,7 @@ import {
   formatDateTime,
   readableCase,
 } from '../lib/format'
+import { MatchPanel } from '../readiness/MatchPanel'
 import { SummaryPanel } from '../summaries/SummaryPanel'
 import { useTender } from '../tenders/queries'
 import { SaveTenderButton } from '../workspace/SaveTenderButton'
@@ -110,6 +111,10 @@ export function TenderDetailPage() {
 
           <Section title="AI summary">
             <SummaryPanel tenderId={tender.id} />
+          </Section>
+
+          <Section title="Readiness check">
+            <MatchPanel tenderId={tender.id} />
           </Section>
         </div>
 
