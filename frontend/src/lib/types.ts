@@ -87,3 +87,55 @@ export type ProfileOptions = {
   bbbee_levels: number[]
   certification_suggestions: string[]
 }
+
+export type TenderDocument = {
+  id: string | null
+  title: string
+  url: string
+  format: string | null
+}
+
+export type TenderListItem = {
+  id: number
+  tender_number: string
+  title: string
+  buyer_name: string
+  province: string | null
+  category: string | null
+  procurement_category: string | null
+  procurement_method: string | null
+  published_at: string | null
+  closing_at: string | null
+  estimated_value: number | null
+  briefing_compulsory: boolean
+  document_count: number
+}
+
+export type TenderDetail = TenderListItem & {
+  documents: TenderDocument[]
+  ocid: string
+  etenders_id: number
+  province_source: string | null
+  delivery_location: string | null
+  briefing_session: boolean
+  briefing_at: string | null
+  briefing_venue: string | null
+  special_conditions: string | null
+  contact_person: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  updated_at: string
+}
+
+export type TenderSearchResponse = {
+  items: TenderListItem[]
+  total: number
+  page: number
+  page_size: number
+  province_counts: Record<string, number>
+}
+
+export type BuyerOption = {
+  name: string
+  open_tenders: number
+}

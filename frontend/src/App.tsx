@@ -7,6 +7,8 @@ import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { TenderDetailPage } from './pages/TenderDetailPage'
+import { TendersPage } from './pages/TendersPage'
 import { RegisterPage } from './pages/RegisterPage'
 
 function App() {
@@ -26,6 +28,8 @@ function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/company-profile" element={<CompanyProfilePage />} />
+                <Route path="/tenders" element={<TendersPage />} />
+                <Route path="/tenders/:tenderId" element={<TenderDetailPage />} />
               </Route>
             </Route>
           </Route>
