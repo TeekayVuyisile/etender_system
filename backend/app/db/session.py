@@ -20,3 +20,8 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """FastAPI dependency for background jobs that need to open their own sessions."""
+    return SessionLocal

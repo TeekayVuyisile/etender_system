@@ -169,3 +169,10 @@ def my_open_tasks(db: Session, user: User) -> list[tuple[WorkspaceTask, Tender]]
         .order_by(WorkspaceTask.due_date.asc().nulls_last(), Tender.closing_at.asc().nulls_last())
     ).all()
     return [(task, tender) for task, tender in rows]
+
+
+def summary_text(doc: dict | None) -> str | None:
+    """The plain-language summary from a stored AI summary document, if it's ready."""
+    if doc and doc.get("status") == "ready":
+        return (doc.get("content") or {}).get("summary") or None
+    return None

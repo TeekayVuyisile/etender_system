@@ -1,12 +1,18 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import Activity, CurrentUser, DbSession
 from app.core.reference import PROVINCES
+from app.db.session import get_session_factory
 from app.models import Tender
+from app.schemas.summary import TenderSummaryResponse
 from app.schemas.tender import BuyerOption, TenderDetail, TenderSearchResponse
+from app.services.llm import LLMClient, LLMError, get_llm_client
+from app.services.summarizer import run_summary_job
+from app.services.summary_store import SummaryStore, get_summary_store, to_response
 from app.services.tender_search import (
     TenderFilters,
     TenderSort,
@@ -88,3 +94,63 @@ def get_tender(tender_id: int, _user: CurrentUser, db: DbSession) -> Tender:
     if tender is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tender not found")
     return tender
+
+
+def require_llm() -> LLMClient:
+    try:
+        return get_llm_client()
+    except LLMError as error:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+
+
+LLM = Annotated[LLMClient, Depends(require_llm)]
+
+
+@router.get("/{tender_id}/summary", response_model=TenderSummaryResponse)
+def get_tender_summary(
+    tender_id: int,
+    _user: CurrentUser,
+    store: Annotated[SummaryStore, Depends(get_summary_store)],
+) -> TenderSummaryResponse:
+    """The AI summary for a tender, or its status if it's still being generated."""
+    return to_response(tender_id, store.get(tender_id))
+
+
+@router.post(
+    "/{tender_id}/summary",
+    response_model=TenderSummaryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def generate_tender_summary(
+    tender_id: int,
+    user: CurrentUser,
+    db: DbSession,
+    background_tasks: BackgroundTasks,
+    activity: Activity,
+    store: Annotated[SummaryStore, Depends(get_summary_store)],
+    llm: LLM,
+    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
+    refresh: bool = False,
+) -> TenderSummaryResponse:
+    """Start generating the AI summary in the background. Poll GET .../summary for the result.
+
+    An existing summary is returned as-is unless `refresh=true`.
+    """
+    if db.get(Tender, tender_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tender not found")
+
+    existing = store.get(tender_id)
+    if existing and existing.get("status") == "ready" and not refresh:
+        return to_response(tender_id, existing)
+    if store.try_start(tender_id, user.id, user.team_id):
+        background_tasks.add_task(
+            run_summary_job, tender_id, session_factory=session_factory, store=store, llm=llm
+        )
+        background_tasks.add_task(
+            activity.log,
+            "tender.summary_requested",
+            user_id=user.id,
+            team_id=user.team_id,
+            details={"tender_id": tender_id, "refresh": refresh},
+        )
+    return to_response(tender_id, store.get(tender_id))

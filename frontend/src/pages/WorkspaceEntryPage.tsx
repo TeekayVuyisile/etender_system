@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { getErrorMessage } from '../lib/api'
 import { deadlineLabel, formatDateTime, readableCase } from '../lib/format'
+import { SummaryPanel } from '../summaries/SummaryPanel'
 import { NotesPanel } from '../workspace/NotesPanel'
 import { useRemoveEntry, useWorkspaceEntry } from '../workspace/queries'
 import { StatusPanel } from '../workspace/StatusPanel'
@@ -97,11 +98,8 @@ export function WorkspaceEntryPage() {
           <Panel title="Status">
             <StatusPanel entry={entry} />
           </Panel>
-          <Panel title="AI summary & readiness">
-            <p className="text-sm text-slate-500">
-              The AI summary and match score for this tender will appear here once those features
-              are available.
-            </p>
+          <Panel title="AI summary">
+            <SummaryPanel tenderId={tender.id} />
           </Panel>
           <Panel title={`Notes (${entry.note_count})`}>
             <NotesPanel entryId={entry.id} notes={entry.notes} />

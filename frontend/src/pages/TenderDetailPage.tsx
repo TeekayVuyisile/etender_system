@@ -11,6 +11,7 @@ import {
   formatDateTime,
   readableCase,
 } from '../lib/format'
+import { SummaryPanel } from '../summaries/SummaryPanel'
 import { useTender } from '../tenders/queries'
 import { SaveTenderButton } from '../workspace/SaveTenderButton'
 
@@ -108,9 +109,7 @@ export function TenderDetailPage() {
           )}
 
           <Section title="AI summary">
-            <p className="text-sm text-slate-500">
-              Plain-language summaries of the tender documents are coming in a later milestone.
-            </p>
+            <SummaryPanel tenderId={tender.id} />
           </Section>
         </div>
 

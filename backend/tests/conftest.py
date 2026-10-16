@@ -15,11 +15,17 @@ from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
+from app.api.routes.tenders import require_llm  # noqa: E402
 from app.db.base import Base  # noqa: E402
-from app.db.session import get_db  # noqa: E402
+from app.db.session import (
+    get_db,  # noqa: E402
+    get_session_factory,  # noqa: E402
+)
 from app.main import app  # noqa: E402
 from app.models import Tender  # noqa: E402
 from app.services.activity import get_activity_logger  # noqa: E402
+from app.services.llm import LLMResponse  # noqa: E402
+from app.services.summary_store import get_summary_store  # noqa: E402
 
 # StaticPool keeps a single connection, so the in-memory database survives between sessions.
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -36,6 +42,64 @@ class FakeActivityLogger:
         self.events.append(
             {"event": event, "user_id": user_id, "team_id": team_id, "details": details or {}}
         )
+
+
+class InMemorySummaryStore:
+    """Stands in for the MongoDB summary store in tests."""
+
+    def __init__(self) -> None:
+        self.docs: dict[int, dict[str, Any]] = {}
+
+    def get(self, tender_id: int) -> dict[str, Any] | None:
+        return self.docs.get(tender_id)
+
+    def get_many(self, tender_ids: list[int]) -> dict[int, dict[str, Any]]:
+        return {i: self.docs[i] for i in tender_ids if i in self.docs}
+
+    def try_start(self, tender_id: int, user_id: int, team_id: int) -> bool:
+        if self.docs.get(tender_id, {}).get("status") == "processing":
+            return False
+        self.docs[tender_id] = {**self.docs.get(tender_id, {}), "status": "processing"}
+        return True
+
+    def save_ready(self, tender_id: int, result: dict[str, Any]) -> None:
+        self.docs[tender_id] = {**result, "status": "ready", "error": None}
+
+    def save_failed(self, tender_id: int, error: str) -> None:
+        self.docs[tender_id] = {**self.docs.get(tender_id, {}), "status": "failed", "error": error}
+
+
+class FakeLLM:
+    """Returns a canned JSON response and records the prompts it received."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+        self.response: dict[str, Any] = {
+            "summary": "The municipality needs a contractor to maintain roads in Limpopo.",
+            "objective": "Maintain municipal roads.",
+            "scope": ["Pothole repairs", "Road marking"],
+            "closing_date": "2026-11-11 10:00",
+            "eligibility": ["CIDB 7CE or higher", "CSD registration"],
+            "requirements": {
+                "cidb": [
+                    {"class_code": "ce", "min_grade": "7"},
+                    {"class_code": "XX", "min_grade": 3},
+                ],
+                "bbbee_min_level": None,
+                "min_years_experience": "5",
+                "certifications": ["CSD Registration"],
+                "provinces": ["limpopo", "Atlantis"],
+                "compulsory_briefing": True,
+            },
+            "contract_duration": "36 months",
+            "evaluation": "80/20",
+            "estimated_value": "R 2,500,000",
+            "other_highlights": ["Site visit required"],
+        }
+
+    def chat_json(self, system: str, user: str, max_tokens: int = 2000) -> LLMResponse:
+        self.prompts.append(user)
+        return LLMResponse(data=self.response, model="fake-model", total_tokens=123)
 
 
 @pytest.fixture
@@ -55,9 +119,27 @@ def activity() -> FakeActivityLogger:
 
 
 @pytest.fixture
-def client(db: Session, activity: FakeActivityLogger) -> Iterator[TestClient]:
+def summary_store() -> InMemorySummaryStore:
+    return InMemorySummaryStore()
+
+
+@pytest.fixture
+def llm() -> FakeLLM:
+    return FakeLLM()
+
+
+@pytest.fixture
+def client(
+    db: Session,
+    activity: FakeActivityLogger,
+    summary_store: InMemorySummaryStore,
+    llm: FakeLLM,
+) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_activity_logger] = lambda: activity
+    app.dependency_overrides[get_summary_store] = lambda: summary_store
+    app.dependency_overrides[require_llm] = lambda: llm
+    app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

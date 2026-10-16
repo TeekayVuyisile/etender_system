@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    groq_api_key: str | None = None
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:
