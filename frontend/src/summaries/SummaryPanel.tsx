@@ -21,6 +21,7 @@ export function SummaryPanel({ tenderId }: { tenderId: number }) {
   useEffect(() => {
     if (status === 'ready') {
       queryClient.invalidateQueries({ queryKey: ['tender', tenderId] })
+      queryClient.invalidateQueries({ queryKey: ['tender-match', tenderId] })
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
     }
   }, [status, tenderId, queryClient])

@@ -28,6 +28,7 @@ from app.schemas.workspace import (
     WorkspaceUpdate,
 )
 from app.services import workspace as service
+from app.services.match_store import MatchStore, get_match_store
 from app.services.summary_store import SummaryStore, get_summary_store
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
@@ -48,13 +49,19 @@ def list_workspace(
     user: CurrentUser,
     db: DbSession,
     store: Annotated[SummaryStore, Depends(get_summary_store)],
+    matches: Annotated[MatchStore, Depends(get_match_store)],
     status_filter: Annotated[WorkspaceStatus | None, Query(alias="status")] = None,
 ) -> WorkspaceListResponse:
     """The team's saved tenders, most relevant first, with counts per status."""
     items = service.list_entries(db, user.team_id, status_filter)
-    summaries = store.get_many([item.tender.id for item in items])
+    tender_ids = [item.tender.id for item in items]
+    summaries = store.get_many(tender_ids)
+    scores = matches.get_many(user.team_id, tender_ids)
     for item in items:
         item.ai_summary = service.summary_text(summaries.get(item.tender.id))
+        item.match_score = (scores.get(item.tender.id) or {}).get("score")
+    # Highest match score first; unscored tenders last (already ordered by nearest deadline).
+    items.sort(key=lambda item: (item.match_score is None, -(item.match_score or 0)))
     return WorkspaceListResponse(items=items, status_counts=service.status_counts(db, user.team_id))
 
 
@@ -129,9 +136,11 @@ def get_workspace_entry(
     user: CurrentUser,
     db: DbSession,
     store: Annotated[SummaryStore, Depends(get_summary_store)],
+    matches: Annotated[MatchStore, Depends(get_match_store)],
 ) -> WorkspaceEntryDetail:
     detail = _detail(service.get_entry(db, entry_id, user.team_id, detail=True))
     detail.ai_summary = service.summary_text(store.get(detail.tender.id))
+    detail.match_score = (matches.get(user.team_id, detail.tender.id) or {}).get("score")
     return detail
 
 

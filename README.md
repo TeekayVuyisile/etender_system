@@ -70,6 +70,28 @@ the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
 Scanned documents without a text layer fall back to a summary of the tender's portal details,
 and say so. LLM calls are serialised and retried on rate limits.
 
+## Readiness scoring
+
+"Match This Tender" (`POST /api/tenders/{id}/match`) compares the requirements the AI extracted
+with the team's company profile. Scoring is **rule-based, not AI-based**, so every point traces
+to a checklist line, results are repeatable, and checks cost no API tokens.
+
+| Check | Weight | Applies when |
+|---|---|---|
+| Required CIDB grading (class and grade) | 25 | The tender requires CIDB |
+| Operates in the delivery province(s) | 20 | A province is known |
+| Minimum B-BBEE level (or preference points if not mandatory) | 15 (5) | Always |
+| Years of experience | 15 | A minimum is stated |
+| Required certifications (matched across different wordings) | 15 | Certifications are listed |
+| Services match the tender's title and scope | 10 | Always |
+| Compulsory briefing not missed | 10 | A compulsory briefing date is known |
+
+The score is the points earned out of the points available for applicable checks. Missing a
+required CIDB grading, a mandatory B-BBEE level or a compulsory briefing makes a tender
+"Not suitable" regardless of score. Competition is a heuristic based on how restrictive the
+requirements are. Results are stored per team in MongoDB (`match_results`), flagged as outdated
+when the profile or summary changes, and used to rank the team's workspace.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+

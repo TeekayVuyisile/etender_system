@@ -254,3 +254,27 @@ export type TenderSummary = {
   error: string | null
   updated_at: string | null
 }
+
+export type CheckStatus = 'met' | 'partial' | 'not_met' | 'unknown'
+
+export type ChecklistItem = {
+  key: string
+  label: string
+  status: CheckStatus
+  detail: string
+  weight: number
+  points: number
+}
+
+export type MatchResult = {
+  tender_id: number
+  score: number
+  verdict: 'suitable' | 'possibly_suitable' | 'not_suitable'
+  competition: 'low' | 'moderate' | 'high'
+  recommendation: string
+  checklist: ChecklistItem[]
+  blockers: string[]
+  checked_at: string
+  checked_by: string | null
+  outdated: boolean
+}
