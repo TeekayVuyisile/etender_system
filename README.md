@@ -33,4 +33,32 @@ frontend/   React application
 
 ## Getting started
 
-_Setup instructions will be added as the project develops._
+**Prerequisites:** Python 3.12+, Node.js 20+
+
+**Backend** (http://localhost:8000, API docs at `/docs`):
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate   # Windows Git Bash; macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+fastapi dev app/main.py
+```
+
+**Frontend** (http://localhost:5173), in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/api/*` requests to the backend.
+
+**Checks:**
+
+```bash
+cd backend && pytest && ruff check .      # backend tests + lint
+cd frontend && npm run lint && npm run build   # frontend lint + type-check/build
+```
