@@ -194,3 +194,14 @@ The Vite dev server proxies `/api/*` requests to the backend.
 cd backend && pytest && ruff check .      # backend tests + lint
 cd frontend && npm run lint && npm run build   # frontend lint + type-check/build
 ```
+
+Tests use in-memory SQLite by default. To run them against PostgreSQL (as CI does), point
+`TEST_DATABASE_URL` at an **empty, dedicated** database whose name contains `test`; the suite
+deletes all data in it and refuses any other database:
+
+```bash
+TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/tih_test pytest
+```
+
+CI runs the backend tests on both SQLite and a PostgreSQL service container, and on PostgreSQL
+also applies every migration to an empty database and checks the models match (`alembic check`).
