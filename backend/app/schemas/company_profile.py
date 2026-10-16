@@ -35,7 +35,12 @@ class CidbGrading(BaseModel):
     grade: int = Field(ge=1, le=9)
 
 
-class CompanyProfileBase(BaseModel):
+class ReadinessProfile(BaseModel):
+    """The parts of a company profile that readiness scoring uses.
+
+    Also the request body for the public readiness API, which doesn't need contact details.
+    """
+
     industry_sector: IndustrySector
     services: UniqueTags = Field(min_length=1, max_length=30)
     cidb_gradings: list[CidbGrading] = Field(default_factory=list, max_length=5)
@@ -43,12 +48,6 @@ class CompanyProfileBase(BaseModel):
     certifications: UniqueTags = Field(default_factory=list, max_length=30)
     provinces: list[Province] = Field(min_length=1)
     years_of_experience: int = Field(ge=0, le=150)
-
-    contact_name: str = Field(min_length=2, max_length=200)
-    contact_email: EmailStr
-    contact_phone: str = Field(min_length=7, max_length=30, pattern=r"^\+?[0-9 ()-]+$")
-    website: str | None = Field(default=None, max_length=300)
-    physical_address: str | None = Field(default=None, max_length=500)
 
     @field_validator("provinces")
     @classmethod
@@ -62,6 +61,14 @@ class CompanyProfileBase(BaseModel):
         if len(codes) != len(set(codes)):
             raise ValueError("Each CIDB class can only be listed once")
         return gradings
+
+
+class CompanyProfileBase(ReadinessProfile):
+    contact_name: str = Field(min_length=2, max_length=200)
+    contact_email: EmailStr
+    contact_phone: str = Field(min_length=7, max_length=30, pattern=r"^\+?[0-9 ()-]+$")
+    website: str | None = Field(default=None, max_length=300)
+    physical_address: str | None = Field(default=None, max_length=500)
 
     @field_validator("website", "physical_address")
     @classmethod

@@ -101,7 +101,11 @@ def _apply_sort(stmt: Select, filters: TenderFilters, rank: ColumnElement | None
     return stmt.order_by(Tender.closing_at.asc().nulls_last(), Tender.id)
 
 
-def search_tenders(db: Session, filters: TenderFilters, page: int, page_size: int) -> SearchResult:
+def search_tenders(
+    db: Session, filters: TenderFilters, page: int, page_size: int, full_rows: bool = False
+) -> SearchResult:
+    """Search tenders. `full_rows` loads every column (e.g. for scoring); by default only the
+    columns the result list shows are loaded."""
     conditions, rank = _base_conditions(db, filters)
 
     # Province counts ignore the province filter, so users can see what each choice would give.
@@ -116,7 +120,9 @@ def search_tenders(db: Session, filters: TenderFilters, page: int, page_size: in
     total = db.scalar(select(func.count()).select_from(Tender).where(*conditions)) or 0
     # Only load what the result list shows: the database is far away (in development), and
     # skipping large columns like the document links makes each page much smaller.
-    stmt = select(Tender).options(load_only(*LIST_COLUMNS)).where(*conditions)
+    stmt = select(Tender).where(*conditions)
+    if not full_rows:
+        stmt = stmt.options(load_only(*LIST_COLUMNS))
     stmt = _apply_sort(stmt, filters, rank)
     tenders = list(db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)))
     return SearchResult(tenders=tenders, total=total, province_counts=province_counts)

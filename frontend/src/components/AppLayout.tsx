@@ -9,6 +9,7 @@ const navItems = [
   { to: '/workspace', label: 'Workspace' },
   { to: '/company-profile', label: 'Company profile' },
   { to: '/plan', label: 'Plan' },
+  { to: '/developers', label: 'API' },
 ]
 
 export function AppLayout() {

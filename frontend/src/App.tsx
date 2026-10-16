@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { GuestOnly, RequireAuth, RequireCompanyProfile } from './auth/RouteGuards'
 import { AppLayout } from './components/AppLayout'
+import { ApiAccessPage } from './pages/ApiAccessPage'
 import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
@@ -32,6 +33,7 @@ function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/company-profile" element={<CompanyProfilePage />} />
                 <Route path="/plan" element={<PlanPage />} />
+                <Route path="/developers" element={<ApiAccessPage />} />
                 <Route path="/tenders" element={<TendersPage />} />
                 <Route path="/tenders/:tenderId" element={<TenderDetailPage />} />
                 <Route path="/workspace" element={<WorkspacePage />} />
