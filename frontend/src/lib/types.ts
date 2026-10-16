@@ -303,3 +303,13 @@ export type TeamPlan = {
   }
   available: PlanDetails[]
 }
+
+export type ApiKeyInfo = {
+  id: number
+  name: string
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+}
+
+export type ApiKeyCreated = ApiKeyInfo & { key: string }

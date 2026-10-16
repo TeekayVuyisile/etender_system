@@ -1,12 +1,16 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.api.deps import Activity, CurrentUser, DbSession, TeamOwner
 from app.core.plans import PLANS
 from app.core.security import hash_password
-from app.models import Plan, User, UserRole
+from app.models import ApiKey, Plan, User, UserRole
+from app.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead
 from app.schemas.plan import PlanChange, PlanDetails, PlanUsage, TeamPlanResponse
 from app.schemas.user import MemberCreate, UserRead
+from app.services.api_keys import create_key
 from app.services.plans import ensure_seat_available, plan_usage, seats_used
 
 router = APIRouter(prefix="/team", tags=["team"])
@@ -112,3 +116,65 @@ def change_team_plan(
             details={"from": old_plan, "to": data.plan},
         )
     return _team_plan(db, owner)
+
+
+# --- API keys (public API access) -----------------------------------------------------
+
+
+@router.get("/api-keys", response_model=list[ApiKeyRead])
+def list_api_keys(owner: TeamOwner, db: DbSession) -> list[ApiKey]:
+    """The team's active API keys (the keys themselves are never shown again)."""
+    return list(
+        db.scalars(
+            select(ApiKey)
+            .where(ApiKey.team_id == owner.team_id, ApiKey.revoked_at.is_(None))
+            .order_by(ApiKey.created_at.desc(), ApiKey.id.desc())
+        )
+    )
+
+
+@router.post("/api-keys", response_model=ApiKeyCreated, status_code=status.HTTP_201_CREATED)
+def create_api_key(
+    data: ApiKeyCreate,
+    owner: TeamOwner,
+    db: DbSession,
+    activity: Activity,
+    background_tasks: BackgroundTasks,
+) -> ApiKeyCreated:
+    """Create an API key for third-party access. The full key is only returned here."""
+    api_key, raw_key = create_key(db, owner, data.name)
+    background_tasks.add_task(
+        activity.log,
+        "team.api_key_created",
+        user_id=owner.id,
+        team_id=owner.team_id,
+        details={"key_id": api_key.id, "name": api_key.name},
+    )
+    return ApiKeyCreated(**ApiKeyRead.model_validate(api_key).model_dump(), key=raw_key)
+
+
+@router.delete("/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_api_key(
+    key_id: int,
+    owner: TeamOwner,
+    db: DbSession,
+    activity: Activity,
+    background_tasks: BackgroundTasks,
+) -> Response:
+    api_key = db.scalar(
+        select(ApiKey).where(
+            ApiKey.id == key_id, ApiKey.team_id == owner.team_id, ApiKey.revoked_at.is_(None)
+        )
+    )
+    if api_key is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="API key not found")
+    api_key.revoked_at = datetime.now(UTC)
+    db.commit()
+    background_tasks.add_task(
+        activity.log,
+        "team.api_key_revoked",
+        user_id=owner.id,
+        team_id=owner.team_id,
+        details={"key_id": key_id},
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

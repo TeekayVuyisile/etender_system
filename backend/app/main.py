@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 
-from app.api.routes import auth, company_profile, health, team, tenders, workspace
+from app.api.routes import auth, company_profile, health, public, team, tenders, workspace
 from app.core.config import settings
 from app.db.mongo import mongo_client
 
@@ -20,10 +20,40 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     mongo_client.close()
 
 
+API_DESCRIPTION = """
+Helps South African SMEs discover, understand and assess public tenders from the
+[OCDS eTenders API](https://ocds-api.etenders.gov.za/swagger).
+
+## Public API
+
+Four endpoints are designed for third-party systems and civic-tech apps (see **public API**):
+enriched tender releases, spend by buyer, document summaries and readiness checks.
+
+**Authentication.** A team owner creates an API key on the *API access* page. Send it in the
+`X-API-Key` header. (A Bearer token from `/api/auth/login` also works, which is handy for
+trying the endpoints here: use **Authorize**.)
+
+**Limits.** 60 requests per minute per key. The key's team plan applies: AI summaries and
+readiness checks need the Basic plan or above, and on the Free plan each distinct search
+counts towards 3 searches a week. Blocked requests return `403` with
+`{"code": "upgrade_required", "required_plan": ...}`.
+"""
+
+OPENAPI_TAGS = [
+    {"name": "public API", "description": "Endpoints for third-party integrations."},
+    {"name": "auth", "description": "Register a team and log in."},
+    {"name": "team", "description": "Members, plans and API keys."},
+    {"name": "company profile", "description": "The company details used for matching."},
+    {"name": "tenders", "description": "Search, AI summaries and readiness checks."},
+    {"name": "workspace", "description": "Saved tenders, statuses, notes, tasks and exports."},
+    {"name": "health", "description": "Service status."},
+]
+
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
-    description="Helps South African SMEs discover, understand and assess public tenders.",
+    version="1.0.0",
+    description=API_DESCRIPTION,
+    openapi_tags=OPENAPI_TAGS,
     lifespan=lifespan,
 )
 
@@ -57,3 +87,4 @@ app.include_router(team.router, prefix="/api")
 app.include_router(company_profile.router, prefix="/api")
 app.include_router(tenders.router, prefix="/api")
 app.include_router(workspace.router, prefix="/api")
+app.include_router(public.router, prefix="/api")

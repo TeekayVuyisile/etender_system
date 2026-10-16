@@ -166,3 +166,46 @@ def run_summary_job(
     except Exception:
         logger.exception("Summary job failed for tender %s", tender_id)
         store.save_failed(tender_id, "Something went wrong while generating the summary")
+
+
+# --- Single-document summaries (public API: POST /api/summary/extract) ---------------
+
+TARGET_WORDS = 120
+
+DOCUMENT_PROMPT = """\
+You summarise South African tender documents for small businesses in plain language.
+Write ONE paragraph of about 120 words (between 105 and 125) covering: what is being
+procured and by whom, the scope, the closing date, and who is eligible (key mandatory
+requirements such as CIDB grading, B-BBEE, registrations or experience). Only use
+information in the document; don't invent details. If the text is not a tender document,
+summarise what it is instead.
+Respond with a JSON object: {"summary": "<the paragraph>"}
+"""
+
+
+def limit_words(text: str, limit: int = TARGET_WORDS, slack: int = 10) -> str:
+    """Keep summaries at about `limit` words, cutting at a sentence end where possible."""
+    words = text.split()
+    if len(words) <= limit + slack:
+        return " ".join(words)
+    cut = " ".join(words[:limit])
+    sentence_end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if sentence_end > len(cut) * 0.6:
+        return cut[: sentence_end + 1]
+    return cut.rstrip(",;:") + "…"
+
+
+def summarize_document(documents: list[ExtractedDocument], llm: LLMClient) -> dict[str, Any]:
+    excerpt = build_excerpt(documents)
+    if not excerpt.text:
+        raise DocumentError("No readable text found (the file may be a scanned image)")
+    response = llm.chat_json(DOCUMENT_PROMPT, f"DOCUMENT:\n{excerpt.text}", max_tokens=900)
+    summary = limit_words(str(response.data.get("summary") or "").strip())
+    if not summary:
+        raise LLMError("The AI model returned an empty summary")
+    return {
+        "summary": summary,
+        "word_count": len(summary.split()),
+        "truncated_input": excerpt.truncated,
+        "model": response.model,
+    }

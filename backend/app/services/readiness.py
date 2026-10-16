@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from app.schemas.company_profile import CompanyProfileBase
+from app.schemas.company_profile import ReadinessProfile
 from app.schemas.readiness import ChecklistItem, Competition, ReadinessResult, Verdict
 from app.schemas.summary import TenderRequirements
 from app.services.tender_sync import SAST
@@ -95,7 +95,7 @@ def _keywords(text: str) -> set[str]:
 # --- Individual checks ----------------------------------------------------------
 
 
-def check_cidb(req: TenderRequirements, profile: CompanyProfileBase) -> ChecklistItem | None:
+def check_cidb(req: TenderRequirements, profile: ReadinessProfile) -> ChecklistItem | None:
     if not req.cidb:
         return None
     held = {g.class_code: g.grade for g in profile.cidb_gradings}
@@ -113,7 +113,7 @@ def check_cidb(req: TenderRequirements, profile: CompanyProfileBase) -> Checklis
     )
 
 
-def check_province(facts: TenderFacts, profile: CompanyProfileBase) -> ChecklistItem | None:
+def check_province(facts: TenderFacts, profile: ReadinessProfile) -> ChecklistItem | None:
     required = facts.requirements.provinces or (
         [facts.province] if facts.province and facts.province != NATIONAL else []
     )
@@ -129,7 +129,7 @@ def check_province(facts: TenderFacts, profile: CompanyProfileBase) -> Checklist
     return _check("province", label, "not_met", "No: outside your coverage", 20)
 
 
-def check_bbbee(req: TenderRequirements, profile: CompanyProfileBase) -> ChecklistItem:
+def check_bbbee(req: TenderRequirements, profile: ReadinessProfile) -> ChecklistItem:
     level = profile.bbbee_level
     yours = f"Level {level}" if level else "not rated"
     if req.bbbee_min_level:
@@ -147,7 +147,7 @@ def check_bbbee(req: TenderRequirements, profile: CompanyProfileBase) -> Checkli
     return _check("bbbee", label, "not_met", f"Few or none: {yours}", 5)
 
 
-def check_experience(req: TenderRequirements, profile: CompanyProfileBase) -> ChecklistItem | None:
+def check_experience(req: TenderRequirements, profile: ReadinessProfile) -> ChecklistItem | None:
     if not req.min_years_experience:
         return None
     label = f"Has {req.min_years_experience}+ years of experience"
@@ -158,7 +158,7 @@ def check_experience(req: TenderRequirements, profile: CompanyProfileBase) -> Ch
 
 
 def check_certifications(
-    req: TenderRequirements, profile: CompanyProfileBase
+    req: TenderRequirements, profile: ReadinessProfile
 ) -> ChecklistItem | None:
     required = [c for c in req.certifications if not _ASSUMED.search(c)]
     if not required:
@@ -193,7 +193,7 @@ def check_certifications(
     return _check("certifications", label, status, detail[0].upper() + detail[1:], 15)
 
 
-def check_services(facts: TenderFacts, profile: CompanyProfileBase) -> ChecklistItem:
+def check_services(facts: TenderFacts, profile: ReadinessProfile) -> ChecklistItem:
     # Portal categories are broad ("Cleaning and Security Services"), so services are matched
     # against the tender's own title and scope; the category only counts for the sector.
     tender_words = _keywords(" ".join([facts.title, *facts.scope]))
@@ -267,7 +267,7 @@ def _recommendation(verdict: Verdict, competition: Competition, blockers: list[s
 
 
 def score_readiness(
-    facts: TenderFacts, profile: CompanyProfileBase, now: datetime | None = None
+    facts: TenderFacts, profile: ReadinessProfile, now: datetime | None = None
 ) -> ReadinessResult:
     now = now or datetime.now(UTC)
     req = facts.requirements

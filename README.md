@@ -107,6 +107,30 @@ requests return `403` with `{"code": "upgrade_required", "required_plan": ...}`.
 distinct combination of keywords and filters per calendar week (Monday, SA time), so paging or
 re-sorting doesn't count. Billing is simulated: team owners switch plans on the Plan page.
 
+## Public API
+
+Documented with OpenAPI at `/docs`. Authenticate with an API key (created by a team owner on
+the API page) in the `X-API-Key` header; a Bearer token also works. 60 requests per minute per
+key, and the key's team plan applies.
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/enriched-releases` | Filtered tenders with metadata, AI summary and a suitability score calculated live against the team's company profile |
+| `GET /api/analytics/spend-by-buyer` | Tenders advertised, open tenders and known values per buyer, with `value_coverage`. Cached in MongoDB for an hour |
+| `POST /api/summary/extract` | Upload a PDF or DOCX (max 15 MB) and get a ~120-word summary |
+| `POST /api/readiness/check` | `{tender_id, company_profile?}` returns the score, checklist and recommendation; defaults to the team's profile |
+
+```bash
+curl -H "X-API-Key: tih_your_key" \
+  "http://localhost:8000/api/enriched-releases?q=road+maintenance&province=Limpopo"
+curl -H "X-API-Key: tih_your_key" -F "file=@bid-document.pdf" \
+  http://localhost:8000/api/summary/extract
+```
+
+API keys are stored as SHA-256 hashes and shown once on creation. Because neither eTenders
+source publishes award values, spend-by-buyer reports advertised activity and known values
+rather than actual spend.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+
