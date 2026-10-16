@@ -8,6 +8,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { getErrorMessage, isUpgradeRequired } from '../lib/api'
 import { SearchAllowance } from '../plans/SearchAllowance'
 import { UpgradePrompt } from '../plans/UpgradePrompt'
+import { DataFreshness } from '../tenders/DataFreshness'
 import { FilterPanel } from '../tenders/FilterPanel'
 import { useTenderSearch } from '../tenders/queries'
 import {
@@ -53,6 +54,9 @@ export function TendersPage() {
         <p className="mt-1 text-slate-600">
           Search open government tenders from the eTenders portal.
         </p>
+        <div className="mt-1">
+          <DataFreshness />
+        </div>
       </div>
 
       <SearchAllowance />

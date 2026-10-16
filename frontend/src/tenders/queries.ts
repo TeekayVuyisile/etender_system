@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 
 import { apiRequest } from '../lib/api'
 import { teamPlanKey } from '../plans/queries'
-import type { BuyerOption, TenderDetail, TenderSearchResponse } from '../lib/types'
+import type { BuyerOption, SyncStatus, TenderDetail, TenderSearchResponse } from '../lib/types'
 import { PAGE_SIZE, type TenderQuery, toSearchParams } from './searchParams'
 
 export function useTenderSearch(query: TenderQuery, enabled: boolean) {
@@ -33,6 +33,14 @@ export function useBuyerSearch(q: string) {
   return useQuery({
     queryKey: ['tender-buyers', q],
     queryFn: () => apiRequest<BuyerOption[]>(`/tenders/buyers?${new URLSearchParams({ q })}`),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useSyncStatus() {
+  return useQuery({
+    queryKey: ['tender-sync-status'],
+    queryFn: () => apiRequest<SyncStatus>('/tenders/sync-status'),
     staleTime: 5 * 60 * 1000,
   })
 }

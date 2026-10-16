@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -6,18 +6,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import Activity, CurrentUser, DbSession, require_feature
+from app.core.config import settings
 from app.core.reference import PROVINCES
 from app.db.session import get_session_factory
 from app.models import CompanyProfile, Tender, User
 from app.schemas.readiness import MatchResultResponse
 from app.schemas.summary import TenderSummaryResponse
+from app.schemas.sync import SyncRunInfo, SyncStatusResponse
 from app.schemas.tender import BuyerOption, TenderDetail, TenderSearchResponse
-from app.services import matching
+from app.services import matching, sync_job
 from app.services.llm import LLMClient, LLMError, get_llm_client
 from app.services.match_store import MatchStore, get_match_store
 from app.services.plans import record_search
 from app.services.summarizer import run_summary_job
 from app.services.summary_store import SummaryStore, get_summary_store, to_response
+from app.services.sync_runs import SyncRunStore, get_sync_run_store
 from app.services.tender_search import (
     TenderFilters,
     TenderSort,
@@ -97,6 +100,29 @@ def list_tenders(
         page=page,
         page_size=page_size,
         province_counts=result.province_counts,
+    )
+
+
+@router.get("/sync-status", response_model=SyncStatusResponse)
+def get_sync_status(
+    _user: CurrentUser, runs: Annotated[SyncRunStore, Depends(get_sync_run_store)]
+) -> SyncStatusResponse:
+    """When tender data was last refreshed from the eTenders APIs, and when it will be next."""
+    latest, success = runs.latest(), runs.latest_success()
+    last_success_at = (success.get("finished_at") or success.get("started_at")) if success else None
+    running = sync_job.scheduler
+    if running and running.next_run_at:
+        next_run_at = running.next_run_at
+    elif settings.sync_schedule_enabled and last_success_at:
+        next_run_at = last_success_at + timedelta(hours=settings.sync_interval_hours)
+    else:
+        next_run_at = None
+    return SyncStatusResponse(
+        last_run=SyncRunInfo(**{"status": "success", **latest}) if latest else None,
+        last_success_at=last_success_at,
+        schedule_enabled=settings.sync_schedule_enabled,
+        interval_hours=settings.sync_interval_hours,
+        next_run_at=next_run_at,
     )
 
 

@@ -313,3 +313,19 @@ export type ApiKeyInfo = {
 }
 
 export type ApiKeyCreated = ApiKeyInfo & { key: string }
+
+export type SyncStatus = {
+  last_run: {
+    status: string
+    trigger: string | null
+    started_at: string | null
+    finished_at: string | null
+    created: number | null
+    updated: number | null
+    error: string | null
+  } | null
+  last_success_at: string | null
+  schedule_enabled: boolean
+  interval_hours: number
+  next_run_at: string | null
+}

@@ -29,6 +29,7 @@ from app.services.api_keys import rate_limiter  # noqa: E402
 from app.services.llm import LLMResponse  # noqa: E402
 from app.services.match_store import get_match_store  # noqa: E402
 from app.services.summary_store import get_summary_store  # noqa: E402
+from app.services.sync_runs import get_sync_run_store  # noqa: E402
 
 # StaticPool keeps a single connection, so the in-memory database survives between sessions.
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -103,6 +104,30 @@ class InMemoryCache:
         self.docs[key] = value
 
 
+class InMemorySyncRunStore:
+    """Stands in for the MongoDB sync run history in tests."""
+
+    def __init__(self) -> None:
+        self.runs: list[dict[str, Any]] = []
+
+    def start(self, trigger: str, days: int) -> str:
+        self.runs.append(
+            {"status": "running", "trigger": trigger, "days": days, "started_at": datetime.now(UTC)}
+        )
+        return str(len(self.runs) - 1)
+
+    def finish(self, run_id: str | None, status: str, details: dict[str, Any]) -> None:
+        self.runs[int(run_id or 0)].update(
+            {**details, "status": status, "finished_at": datetime.now(UTC)}
+        )
+
+    def latest(self) -> dict[str, Any] | None:
+        return self.runs[-1] if self.runs else None
+
+    def latest_success(self) -> dict[str, Any] | None:
+        return next((r for r in reversed(self.runs) if r["status"] == "success"), None)
+
+
 class FakeLLM:
     """Returns a canned JSON response and records the prompts it received."""
 
@@ -173,6 +198,11 @@ def analytics_cache() -> InMemoryCache:
 
 
 @pytest.fixture
+def sync_runs() -> InMemorySyncRunStore:
+    return InMemorySyncRunStore()
+
+
+@pytest.fixture
 def client(
     db: Session,
     activity: FakeActivityLogger,
@@ -180,6 +210,7 @@ def client(
     llm: FakeLLM,
     match_store: InMemoryMatchStore,
     analytics_cache: InMemoryCache,
+    sync_runs: InMemorySyncRunStore,
 ) -> Iterator[TestClient]:
     rate_limiter._hits.clear()  # key IDs restart in every test's fresh database
     app.dependency_overrides[get_db] = lambda: db
@@ -188,6 +219,7 @@ def client(
     app.dependency_overrides[require_llm] = lambda: llm
     app.dependency_overrides[get_match_store] = lambda: match_store
     app.dependency_overrides[get_analytics_cache] = lambda: analytics_cache
+    app.dependency_overrides[get_sync_run_store] = lambda: sync_runs
     app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
     with TestClient(app) as test_client:
         yield test_client

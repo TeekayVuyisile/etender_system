@@ -10,13 +10,26 @@ from pymongo.errors import PyMongoError
 from app.api.routes import auth, company_profile, health, public, team, tenders, workspace
 from app.core.config import settings
 from app.db.mongo import mongo_client
+from app.db.session import SessionLocal
+from app.services import sync_job
+from app.services.sync_job import SyncScheduler
 
 logger = logging.getLogger(__name__)
+
+# Uvicorn only configures its own loggers; without this the app's INFO messages (e.g. the
+# tender sync scheduler) would be dropped.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if settings.sync_schedule_enabled:
+        sync_job.scheduler = SyncScheduler(SessionLocal)
+        sync_job.scheduler.start()
     yield
+    if sync_job.scheduler:
+        sync_job.scheduler.stop()
     mongo_client.close()
 
 

@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
+    # Automatic tender sync. Enable it here to run inside the API process, or run
+    # `python -m app.cli scheduler` as a separate worker.
+    sync_schedule_enabled: bool = False
+    sync_interval_hours: float = 6
+    sync_days: int = 3
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:
