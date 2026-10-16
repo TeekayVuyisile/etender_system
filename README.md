@@ -92,6 +92,21 @@ required CIDB grading, a mandatory B-BBEE level or a compulsory briefing makes a
 requirements are. Results are stored per team in MongoDB (`match_results`), flagged as outdated
 when the profile or summary changes, and used to rank the team's workspace.
 
+## SaaS plans
+
+| | Free | Basic | Pro |
+|---|---|---|---|
+| Team members | 1 | 3 | Unlimited |
+| Tender searches | 3 per week | Unlimited | Unlimited |
+| AI summaries and readiness checks | – | ✓ | ✓ |
+| Workspace report export (CSV, PDF) | – | – | ✓ |
+
+Limits are enforced on the server (`app/core/plans.py` defines them, `app/services/plans.py`
+enforces them): feature-gated endpoints use a `require_feature(...)` dependency and blocked
+requests return `403` with `{"code": "upgrade_required", "required_plan": ...}`. A "search" is a
+distinct combination of keywords and filters per calendar week (Monday, SA time), so paging or
+re-sorting doesn't count. Billing is simulated: team owners switch plans on the Plan page.
+
 ## Getting started
 
 **Prerequisites:** Python 3.12+, Node.js 20+

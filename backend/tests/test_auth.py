@@ -4,7 +4,7 @@ from tests.conftest import FakeActivityLogger, auth_header, register
 
 
 def test_register_creates_team_owner(client: TestClient, activity: FakeActivityLogger):
-    token = register(client)
+    token = register(client, plan="free")
 
     response = client.get("/api/auth/me", headers=auth_header(token))
 

@@ -280,3 +280,24 @@ def test_workspace_shows_ai_summary(client: TestClient, db: Session, headers: di
 
     assert before is None
     assert after == "The municipality needs a contractor to maintain roads in Limpopo."
+
+
+def test_mongodb_outage_returns_503_not_500(
+    client: TestClient, db: Session, headers: dict[str, str]
+):
+    from pymongo.errors import ServerSelectionTimeoutError
+
+    from app.main import app
+    from app.services.summary_store import get_summary_store
+
+    class BrokenStore(InMemorySummaryStore):
+        def get(self, tender_id: int):
+            raise ServerSelectionTimeoutError("SSL handshake failed")
+
+    app.dependency_overrides[get_summary_store] = lambda: BrokenStore()
+    tender = add_tender(db)
+
+    response = client.get(f"/api/tenders/{tender.id}/summary", headers=headers)
+
+    assert response.status_code == 503
+    assert "temporarily unavailable" in response.json()["detail"]

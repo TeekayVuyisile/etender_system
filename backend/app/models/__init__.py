@@ -2,6 +2,7 @@
 from app.models.company_profile import CompanyProfile
 from app.models.team import Plan, Team
 from app.models.tender import Tender
+from app.models.usage import SearchUsage
 from app.models.user import User, UserRole
 from app.models.workspace import (
     WorkspaceNote,
@@ -14,6 +15,7 @@ from app.models.workspace import (
 __all__ = [
     "CompanyProfile",
     "Plan",
+    "SearchUsage",
     "Team",
     "Tender",
     "User",

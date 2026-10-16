@@ -9,12 +9,18 @@ import { Spinner } from '../components/ui/Spinner'
 import { TextField } from '../components/ui/TextField'
 import { apiRequest, getErrorMessage } from '../lib/api'
 import type { CurrentUser, MemberCreateData, Plan, User } from '../lib/types'
+import { teamPlanKey, useTeamPlan } from '../plans/queries'
+import { UpgradePrompt } from '../plans/UpgradePrompt'
 import { useCompanyProfile } from '../profile/queries'
 import { teamMembersKey, useTeamMembers } from '../team/queries'
 import { MyTasksCard } from '../workspace/MyTasksCard'
 import { WorkspaceSummaryCard } from '../workspace/WorkspaceSummaryCard'
 
-const planLabels: Record<Plan, string> = { free: 'Free', basic: 'Basic', pro: 'Pro' }
+const planLabels: Record<Plan, string> = {
+  free: 'Free',
+  basic: 'Basic',
+  pro: 'Pro',
+}
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -97,10 +103,23 @@ function TeamCard({ user }: { user: CurrentUser }) {
 
 function MembersCard({ user }: { user: CurrentUser }) {
   const membersQuery = useTeamMembers()
+  const { data: teamPlan } = useTeamPlan()
+  const seatLimit = teamPlan?.usage.seats_limit
+  const seatsFull =
+    seatLimit !== undefined && seatLimit !== null && (teamPlan?.usage.seats_used ?? 0) >= seatLimit
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-500">Team members</h2>
+      <h2 className="text-sm font-semibold text-slate-500">
+        Team members
+        {seatLimit !== undefined && (
+          <span className="ml-2 font-normal text-slate-400">
+            {seatLimit === null
+              ? `${teamPlan?.usage.seats_used} member${teamPlan?.usage.seats_used === 1 ? '' : 's'} · unlimited seats`
+              : `${teamPlan?.usage.seats_used} of ${seatLimit} seats used`}
+          </span>
+        )}
+      </h2>
 
       {membersQuery.isPending && (
         <div className="mt-4">
@@ -131,12 +150,26 @@ function MembersCard({ user }: { user: CurrentUser }) {
         </ul>
       )}
 
-      {user.role === 'owner' && <AddMemberForm />}
+      {user.role === 'owner' &&
+        (seatsFull ? (
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <UpgradePrompt
+              message={`Your ${teamPlan?.current.name} plan allows ${seatLimit} team member${seatLimit === 1 ? '' : 's'}.`}
+              requiredPlan={teamPlan?.current.plan === 'free' ? 'basic' : 'pro'}
+            />
+          </div>
+        ) : (
+          <AddMemberForm />
+        ))}
     </section>
   )
 }
 
-const emptyMember: MemberCreateData = { full_name: '', email: '', password: '' }
+const emptyMember: MemberCreateData = {
+  full_name: '',
+  email: '',
+  password: '',
+}
 
 function AddMemberForm() {
   const queryClient = useQueryClient()
@@ -148,6 +181,7 @@ function AddMemberForm() {
     onSuccess: () => {
       setForm(emptyMember)
       queryClient.invalidateQueries({ queryKey: teamMembersKey })
+      queryClient.invalidateQueries({ queryKey: teamPlanKey })
     },
   })
 

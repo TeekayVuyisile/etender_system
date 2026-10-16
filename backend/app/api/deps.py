@@ -4,10 +4,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.plans import Feature
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models import User, UserRole
 from app.services.activity import ActivityLogger, get_activity_logger
+from app.services.plans import ensure_feature
 
 # tokenUrl tells Swagger UI where to send the login form for its "Authorize" button.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -45,3 +47,13 @@ def require_owner(user: CurrentUser) -> User:
 
 
 TeamOwner = Annotated[User, Depends(require_owner)]
+
+
+def require_feature(feature: Feature):
+    """Dependency factory: only allow the request if the team's plan includes `feature`."""
+
+    def dependency(user: CurrentUser) -> User:
+        ensure_feature(user.team, feature)
+        return user
+
+    return dependency

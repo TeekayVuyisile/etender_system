@@ -5,7 +5,9 @@ import { ErrorAlert } from '../components/ui/Alert'
 import { Button } from '../components/ui/Button'
 import { Pagination } from '../components/ui/Pagination'
 import { Spinner } from '../components/ui/Spinner'
-import { getErrorMessage } from '../lib/api'
+import { getErrorMessage, isUpgradeRequired } from '../lib/api'
+import { SearchAllowance } from '../plans/SearchAllowance'
+import { UpgradePrompt } from '../plans/UpgradePrompt'
 import { FilterPanel } from '../tenders/FilterPanel'
 import { useTenderSearch } from '../tenders/queries'
 import {
@@ -52,6 +54,8 @@ export function TendersPage() {
           Search open government tenders from the eTenders portal.
         </p>
       </div>
+
+      <SearchAllowance />
 
       <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
         <label htmlFor="tender-search" className="sr-only">
@@ -120,7 +124,7 @@ export function TendersPage() {
                       </>
                     )}
                   </>
-                ) : (
+                ) : searchQuery.isError ? null : (
                   'Searching…'
                 )}
               </p>
@@ -140,7 +144,15 @@ export function TendersPage() {
               </label>
             </div>
 
-            {searchQuery.isError && <ErrorAlert message={getErrorMessage(searchQuery.error)} />}
+            {searchQuery.isError &&
+              (isUpgradeRequired(searchQuery.error) ? (
+                <UpgradePrompt
+                  message={searchQuery.error.message}
+                  requiredPlan={searchQuery.error.requiredPlan}
+                />
+              ) : (
+                <ErrorAlert message={getErrorMessage(searchQuery.error)} />
+              ))}
             {searchQuery.isPending && <Spinner />}
 
             {data && data.items.length === 0 && (

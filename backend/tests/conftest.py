@@ -176,8 +176,13 @@ def register(
     email: str = "owner@acme.co.za",
     password: str = "supersecret123",
     company_name: str = "Acme Construction",
+    plan: str = "pro",
 ) -> str:
-    """Register a new team owner and return their access token."""
+    """Register a new team owner and return their access token.
+
+    Teams start on the Free plan; tests default to Pro so plan limits only apply in the
+    tests written for them.
+    """
     response = client.post(
         "/api/auth/register",
         json={
@@ -188,7 +193,11 @@ def register(
         },
     )
     assert response.status_code == 201, response.text
-    return response.json()["access_token"]
+    token = response.json()["access_token"]
+    if plan != "free":
+        upgrade = client.put("/api/team/plan", json={"plan": plan}, headers=auth_header(token))
+        assert upgrade.status_code == 200, upgrade.text
+    return token
 
 
 def auth_header(token: str) -> dict[str, str]:

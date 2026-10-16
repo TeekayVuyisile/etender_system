@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
 import { Button } from './ui/Button'
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/tenders', label: 'Tenders' },
   { to: '/workspace', label: 'Workspace' },
   { to: '/company-profile', label: 'Company profile' },
+  { to: '/plan', label: 'Plan' },
 ]
 
 export function AppLayout() {
@@ -24,6 +25,15 @@ export function AppLayout() {
             <p className="truncate text-xs text-slate-500">{user?.team.name}</p>
           </div>
           <div className="flex items-center gap-3">
+            {user && (
+              <Link
+                to="/plan"
+                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 capitalize hover:bg-emerald-100"
+                title="View plan and usage"
+              >
+                {user.team.plan} plan
+              </Link>
+            )}
             <span className="hidden text-sm text-slate-600 sm:inline">{user?.full_name}</span>
             <Button variant="secondary" onClick={logout}>
               Sign out

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { getErrorMessage } from '../lib/api'
 import { deadlineLabel, formatDateTime, readableCase } from '../lib/format'
+import { FeatureGate } from '../plans/UpgradePrompt'
 import { MatchPanel } from '../readiness/MatchPanel'
 import { SummaryPanel } from '../summaries/SummaryPanel'
 import { NotesPanel } from '../workspace/NotesPanel'
@@ -100,10 +101,14 @@ export function WorkspaceEntryPage() {
             <StatusPanel entry={entry} />
           </Panel>
           <Panel title="Readiness check">
-            <MatchPanel tenderId={tender.id} />
+            <FeatureGate feature="readiness_checks">
+              <MatchPanel tenderId={tender.id} />
+            </FeatureGate>
           </Panel>
           <Panel title="AI summary">
-            <SummaryPanel tenderId={tender.id} />
+            <FeatureGate feature="ai_summaries">
+              <SummaryPanel tenderId={tender.id} />
+            </FeatureGate>
           </Panel>
           <Panel title={`Notes (${entry.note_count})`}>
             <NotesPanel entryId={entry.id} notes={entry.notes} />
