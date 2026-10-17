@@ -1,17 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
+import type { IconType } from 'react-icons'
+import {
+  LuAlarmClock,
+  LuBell,
+  LuCalendarDays,
+  LuCircleCheck,
+  LuMessageSquare,
+  LuRefreshCw,
+  LuSparkles,
+} from 'react-icons/lu'
 import { useNavigate } from 'react-router'
 
 import { formatDateTime, readableCase, relativeTime } from '../lib/format'
 import type { AppNotification } from '../lib/types'
 import { useMarkRead, useNotifications } from './queries'
 
-const ICONS: Record<string, string> = {
-  task_assigned: '✅',
-  status_changed: '🔄',
-  note_added: '💬',
-  summary_ready: '✨',
-  deadline_reminder: '⏰',
-  briefing_reminder: '📅',
+const ICONS: Record<string, IconType> = {
+  task_assigned: LuCircleCheck,
+  status_changed: LuRefreshCw,
+  note_added: LuMessageSquare,
+  summary_ready: LuSparkles,
+  deadline_reminder: LuAlarmClock,
+  briefing_reminder: LuCalendarDays,
+}
+
+function NotificationIcon({ type }: { type: string }) {
+  const Icon = ICONS[type] ?? LuBell
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </span>
+  )
 }
 
 export function NotificationBell() {
@@ -54,20 +73,7 @@ export function NotificationBell() {
         aria-label={unread ? `Notifications (${unread} unread)` : 'Notifications'}
         aria-expanded={open}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.8}
-          className="h-5 w-5"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
-          />
-        </svg>
+        <LuBell className="h-5 w-5" aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
             {unread > 9 ? '9+' : unread}
@@ -105,9 +111,7 @@ export function NotificationBell() {
                       notification.read_at ? '' : 'bg-emerald-50/50'
                     }`}
                   >
-                    <span className="mt-0.5 text-base" aria-hidden="true">
-                      {ICONS[notification.type] ?? '🔔'}
-                    </span>
+                    <NotificationIcon type={notification.type} />
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-sm ${

@@ -1,3 +1,4 @@
+import { LuCircleCheck, LuMessageSquare } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { deadlineLabel, readableCase, relativeTime } from '../lib/format'
@@ -38,15 +39,18 @@ export function WorkspaceEntryCard({ entry }: { entry: WorkspaceEntry }) {
       </p>
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-        <span>
-          💬 {entry.note_count} note{entry.note_count === 1 ? '' : 's'}
+        <span className="inline-flex items-center gap-1">
+          <LuMessageSquare aria-hidden="true" />
+          {entry.note_count} note{entry.note_count === 1 ? '' : 's'}
         </span>
-        <span>
-          ✅ {entry.open_task_count} open task{entry.open_task_count === 1 ? '' : 's'}
+        <span className="inline-flex items-center gap-1">
+          <LuCircleCheck aria-hidden="true" />
+          {entry.open_task_count} open task{entry.open_task_count === 1 ? '' : 's'}
         </span>
         {entry.status_changed_by && (
           <span>
-            Status set by {entry.status_changed_by.full_name} {relativeTime(entry.status_changed_at)}
+            Status set by {entry.status_changed_by.full_name}{' '}
+            {relativeTime(entry.status_changed_at)}
           </span>
         )}
       </div>
@@ -62,8 +66,7 @@ function MatchScore({ score }: { score: number | null }) {
       </span>
     )
   }
-  const color =
-    score >= 70 ? 'bg-emerald-600' : score >= 40 ? 'bg-amber-500' : 'bg-red-500'
+  const color = score >= 70 ? 'bg-emerald-600' : score >= 40 ? 'bg-amber-500' : 'bg-red-500'
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${color}`}>
       {Math.round(score)}/100

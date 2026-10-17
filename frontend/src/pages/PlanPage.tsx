@@ -1,3 +1,5 @@
+import { LuCheck, LuX } from 'react-icons/lu'
+
 import { useAuth } from '../auth/useAuth'
 import { ErrorAlert } from '../components/ui/Alert'
 import { Button } from '../components/ui/Button'
@@ -95,9 +97,15 @@ export function PlanPage() {
                 {featureList(plan).map((feature) => (
                   <li
                     key={feature.label}
-                    className={feature.included ? 'text-slate-700' : 'text-slate-400 line-through'}
+                    className={`flex items-start gap-2 ${
+                      feature.included ? 'text-slate-700' : 'text-slate-400 line-through'
+                    }`}
                   >
-                    <span className="mr-2">{feature.included ? '✓' : '✕'}</span>
+                    {feature.included ? (
+                      <LuCheck className="mt-0.5 shrink-0 text-emerald-600" aria-hidden="true" />
+                    ) : (
+                      <LuX className="mt-0.5 shrink-0" aria-hidden="true" />
+                    )}
                     {feature.label}
                   </li>
                 ))}

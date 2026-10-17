@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { LuArrowRight, LuChevronDown } from 'react-icons/lu'
 import { useSearchParams } from 'react-router'
 
 import { ErrorAlert } from '../components/ui/Alert'
@@ -84,9 +85,9 @@ export function TendersPage() {
           <button
             type="button"
             onClick={() => updateQuery({ sort: 'closing_soon' })}
-            className="mt-3 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
           >
-            Or browse all open tenders →
+            Or browse all open tenders <LuArrowRight aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -98,7 +99,10 @@ export function TendersPage() {
             >
               <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-slate-900">
                 Filters{activeFilters > 0 && ` (${activeFilters})`}
-                <span className="text-slate-400 group-open:rotate-180 lg:hidden">⌄</span>
+                <LuChevronDown
+                  className="text-slate-400 group-open:rotate-180 lg:hidden"
+                  aria-hidden="true"
+                />
               </summary>
               <div className="mt-4">
                 {/* Re-create the panel when the URL changes so its draft matches. */}

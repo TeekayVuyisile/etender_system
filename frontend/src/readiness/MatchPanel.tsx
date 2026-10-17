@@ -1,3 +1,5 @@
+import type { IconType } from 'react-icons'
+import { LuCheck, LuCircleHelp, LuCircleMinus, LuTarget, LuX } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { ErrorAlert } from '../components/ui/Alert'
@@ -15,11 +17,11 @@ const VERDICT_STYLES: Record<MatchResult['verdict'], { label: string; className:
   not_suitable: { label: 'Not suitable', className: 'bg-red-50 text-red-700' },
 }
 
-const STATUS_ICONS: Record<CheckStatus, { icon: string; label: string; className: string }> = {
-  met: { icon: '✓', label: 'Yes', className: 'bg-emerald-100 text-emerald-700' },
-  partial: { icon: '◐', label: 'Partly', className: 'bg-amber-100 text-amber-700' },
-  unknown: { icon: '?', label: 'Confirm', className: 'bg-slate-200 text-slate-600' },
-  not_met: { icon: '✕', label: 'No', className: 'bg-red-100 text-red-700' },
+const STATUS_ICONS: Record<CheckStatus, { icon: IconType; label: string; className: string }> = {
+  met: { icon: LuCheck, label: 'Yes', className: 'bg-emerald-100 text-emerald-700' },
+  partial: { icon: LuCircleMinus, label: 'Partly', className: 'bg-amber-100 text-amber-700' },
+  unknown: { icon: LuCircleHelp, label: 'Confirm', className: 'bg-slate-200 text-slate-600' },
+  not_met: { icon: LuX, label: 'No', className: 'bg-red-100 text-red-700' },
 }
 
 /** "Match This Tender": readiness score, checklist and recommendation for the team. */
@@ -43,7 +45,10 @@ export function MatchPanel({ tenderId }: { tenderId: number }) {
       <div>
         <p className="text-sm text-slate-600">
           Check how well this tender fits your{' '}
-          <Link to="/company-profile" className="font-medium text-emerald-700 hover:text-emerald-800">
+          <Link
+            to="/company-profile"
+            className="font-medium text-emerald-700 hover:text-emerald-800"
+          >
             company profile
           </Link>
           : CIDB grading, provinces, B-BBEE, experience, certifications and services.
@@ -64,7 +69,7 @@ export function MatchPanel({ tenderId }: { tenderId: number }) {
           isLoading={matchTender.isPending}
           onClick={() => matchTender.mutate()}
         >
-          🎯 Match This Tender
+          <LuTarget aria-hidden="true" /> Match This Tender
         </Button>
       </div>
     )
@@ -97,8 +102,8 @@ export function MatchPanel({ tenderId }: { tenderId: number }) {
           </span>
           <p className="mt-2 text-sm font-medium text-slate-900">{result.recommendation}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Estimated competition: {result.competition}. Based on the tender's requirements, not
-            on who else is bidding.
+            Estimated competition: {result.competition}. Based on the tender's requirements, not on
+            who else is bidding.
           </p>
         </div>
       </div>
@@ -113,7 +118,7 @@ export function MatchPanel({ tenderId }: { tenderId: number }) {
                 aria-label={status.label}
                 title={status.label}
               >
-                {status.icon}
+                <status.icon className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-900">{item.label}</p>
@@ -130,8 +135,8 @@ export function MatchPanel({ tenderId }: { tenderId: number }) {
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <p>
           Checked {relativeTime(result.checked_at)}
-          {result.checked_by && ` by ${result.checked_by}`}. Requirements come from the AI
-          summary, so confirm them in the official documents.
+          {result.checked_by && ` by ${result.checked_by}`}. Requirements come from the AI summary,
+          so confirm them in the official documents.
         </p>
         {!result.outdated && (
           <button
@@ -153,7 +158,11 @@ function ScoreRing({ score }: { score: number }) {
   const color = score >= 75 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626'
   const circumference = 2 * Math.PI * 34
   return (
-    <div className="relative h-24 w-24 shrink-0" role="img" aria-label={`Score ${score} out of 100`}>
+    <div
+      className="relative h-24 w-24 shrink-0"
+      role="img"
+      aria-label={`Score ${score} out of 100`}
+    >
       <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
         <circle cx="40" cy="40" r="34" fill="none" stroke="#e2e8f0" strokeWidth="8" />
         <circle

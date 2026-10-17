@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
+import { LuCheck, LuExternalLink } from 'react-icons/lu'
 
 import { useAuth } from '../auth/useAuth'
 import { ErrorAlert } from '../components/ui/Alert'
@@ -37,9 +38,9 @@ export function ApiAccessPage() {
           href="/docs"
           target="_blank"
           rel="noreferrer"
-          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
         >
-          Open API documentation ↗
+          Open API documentation <LuExternalLink aria-hidden="true" />
         </a>
       </div>
 
@@ -122,7 +123,13 @@ function ApiKeysManager() {
               {newKey.key}
             </code>
             <Button variant="secondary" onClick={() => copyKey(newKey.key)}>
-              {copied ? 'Copied ✓' : 'Copy'}
+              {copied ? (
+                <>
+                  Copied <LuCheck aria-hidden="true" />
+                </>
+              ) : (
+                'Copy'
+              )}
             </Button>
           </div>
           <button

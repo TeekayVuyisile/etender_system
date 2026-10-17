@@ -1,3 +1,4 @@
+import { LuCheck, LuStar } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { getErrorMessage } from '../lib/api'
@@ -26,7 +27,7 @@ export function SaveTenderButton({ tenderId, size = 'md' }: SaveTenderButtonProp
         className={`${base} bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
         title="Open in workspace"
       >
-        ✓ Saved · {STATUS_LABELS[saved.status]}
+        <LuCheck aria-hidden="true" /> Saved · {STATUS_LABELS[saved.status]}
       </Link>
     )
   }
@@ -39,7 +40,13 @@ export function SaveTenderButton({ tenderId, size = 'md' }: SaveTenderButtonProp
         disabled={saveTender.isPending || savedQuery.isPending}
         className={`${base} border border-slate-300 bg-white text-slate-700 hover:border-emerald-600 hover:text-emerald-700 disabled:opacity-60`}
       >
-        {saveTender.isPending ? 'Saving…' : '☆ Save to workspace'}
+        {saveTender.isPending ? (
+          'Saving…'
+        ) : (
+          <>
+            <LuStar aria-hidden="true" /> Save to workspace
+          </>
+        )}
       </button>
       {saveTender.isError && (
         <span className="mt-1 text-xs text-red-600">{getErrorMessage(saveTender.error)}</span>

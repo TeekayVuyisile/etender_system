@@ -1,16 +1,27 @@
+import type { IconType } from 'react-icons'
+import {
+  LuArrowRight,
+  LuBuilding2,
+  LuCode,
+  LuCreditCard,
+  LuFolderKanban,
+  LuLayoutDashboard,
+  LuLogOut,
+  LuSearch,
+} from 'react-icons/lu'
 import { Link, NavLink, Outlet } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
 import { NotificationBell } from '../notifications/NotificationBell'
-import { Button } from './ui/Button'
+import { Logo } from './Logo'
 
-const navItems = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/tenders', label: 'Tenders' },
-  { to: '/workspace', label: 'Workspace' },
-  { to: '/company-profile', label: 'Company profile' },
-  { to: '/plan', label: 'Plan' },
-  { to: '/developers', label: 'API' },
+const navItems: { to: string; label: string; icon: IconType }[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: LuLayoutDashboard },
+  { to: '/tenders', label: 'Tenders', icon: LuSearch },
+  { to: '/workspace', label: 'Workspace', icon: LuFolderKanban },
+  { to: '/company-profile', label: 'Company profile', icon: LuBuilding2 },
+  { to: '/plan', label: 'Plan', icon: LuCreditCard },
+  { to: '/developers', label: 'API', icon: LuCode },
 ]
 
 export function AppLayout() {
@@ -30,35 +41,39 @@ export function AppLayout() {
               // protected-route redirect to /login, and this also clears all demo state.
               window.location.assign('/register')
             }}
-            className="font-semibold text-emerald-300 underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 font-semibold text-emerald-300 underline-offset-2 hover:underline"
           >
-            Create your own account →
+            Create your own account <LuArrowRight aria-hidden="true" />
           </button>
         </div>
       )}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold tracking-wide text-emerald-700 uppercase">
-              Tender Insight Hub
-            </p>
-            <p className="truncate text-xs text-slate-500">{user?.team.name}</p>
-          </div>
-          <div className="flex items-center gap-3">
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-3">
+            <Logo nameClassName="hidden sm:inline" />
+            <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden="true" />
+            <span className="truncate text-sm text-slate-500">{user?.team.name}</span>
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
             {user && (
               <Link
                 to="/plan"
-                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 capitalize hover:bg-emerald-100"
+                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 capitalize ring-1 ring-emerald-100 hover:bg-emerald-100"
                 title="View plan and usage"
               >
                 {user.team.plan} plan
               </Link>
             )}
             <NotificationBell />
-            <span className="hidden text-sm text-slate-600 sm:inline">{user?.full_name}</span>
-            <Button variant="secondary" onClick={logout}>
-              Sign out
-            </Button>
+            <span className="hidden text-sm text-slate-600 md:inline">{user?.full_name}</span>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <LuLogOut aria-hidden="true" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 sm:px-6">
@@ -66,15 +81,15 @@ export function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
               className={({ isActive }) =>
-                `border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap ${
+                `inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap ${
                   isActive
                     ? 'border-emerald-600 text-emerald-700'
                     : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
                 }`
               }
             >
+              <item.icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </NavLink>
           ))}

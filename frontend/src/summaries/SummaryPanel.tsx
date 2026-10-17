@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { type ReactNode, useEffect } from 'react'
+import { LuSparkles } from 'react-icons/lu'
 
 import { ErrorAlert } from '../components/ui/Alert'
 import { Button } from '../components/ui/Button'
@@ -89,8 +90,13 @@ export function SummaryPanel({ tenderId }: { tenderId: number }) {
           <ErrorAlert message={getErrorMessage(generate.error)} />
         </div>
       )}
-      <Button className="mt-4" isLoading={generate.isPending} onClick={() => generate.mutate(false)}>
-        ✨ {status === 'failed' ? 'Try again' : 'Generate AI summary'}
+      <Button
+        className="mt-4"
+        isLoading={generate.isPending}
+        onClick={() => generate.mutate(false)}
+      >
+        <LuSparkles aria-hidden="true" />{' '}
+        {status === 'failed' ? 'Try again' : 'Generate AI summary'}
       </Button>
     </div>
   )
@@ -109,14 +115,21 @@ function SummaryContent({ content }: { content: TenderSummaryContent }) {
         ? requirements.cidb.map((c) => `${c.min_grade}${c.class_code} or higher`).join(', ')
         : null,
     ],
-    ['Minimum B-BBEE level', requirements.bbbee_min_level ? `Level ${requirements.bbbee_min_level}` : null],
+    [
+      'Minimum B-BBEE level',
+      requirements.bbbee_min_level ? `Level ${requirements.bbbee_min_level}` : null,
+    ],
     [
       'Experience',
       requirements.min_years_experience ? `${requirements.min_years_experience}+ years` : null,
     ],
     [
       'Compulsory briefing',
-      requirements.compulsory_briefing === null ? null : requirements.compulsory_briefing ? 'Yes' : 'No',
+      requirements.compulsory_briefing === null
+        ? null
+        : requirements.compulsory_briefing
+          ? 'Yes'
+          : 'No',
     ],
   ]
 

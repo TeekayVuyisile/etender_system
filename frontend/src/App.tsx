@@ -6,6 +6,7 @@ import { AppLayout } from './components/AppLayout'
 import { ApiAccessPage } from './pages/ApiAccessPage'
 import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PlanPage } from './pages/PlanPage'
@@ -21,6 +22,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route element={<GuestOnly />}>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Route>
@@ -30,7 +32,7 @@ function App() {
 
             <Route element={<RequireCompanyProfile />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/company-profile" element={<CompanyProfilePage />} />
                 <Route path="/plan" element={<PlanPage />} />
                 <Route path="/developers" element={<ApiAccessPage />} />

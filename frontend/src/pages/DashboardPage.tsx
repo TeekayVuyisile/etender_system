@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
+import { LuArrowRight } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { useAuth } from '../auth/useAuth'
@@ -93,9 +94,9 @@ function TeamCard({ user }: { user: CurrentUser }) {
       </dl>
       <Link
         to="/company-profile"
-        className="mt-6 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+        className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
       >
-        View company profile →
+        View company profile <LuArrowRight aria-hidden="true" />
       </Link>
     </section>
   )
