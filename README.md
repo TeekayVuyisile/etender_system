@@ -1,37 +1,130 @@
 # Tender Insight Hub
 
-A multi-tenant SaaS platform that helps South African SMEs discover, understand and assess public tenders from the [OCDS eTenders API](https://ocds-api.etenders.gov.za/).
+[![CI](https://github.com/TeekayVuyisile/etender_system/actions/workflows/ci.yml/badge.svg)](https://github.com/TeekayVuyisile/etender_system/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 
-> 🚧 Work in progress: a personal portfolio project, built feature by feature.
+A multi-tenant SaaS platform that helps South African SMEs **find public tenders that fit their
+business, understand the bid documents in minutes and decide where they can win**. It's built on
+live data from the National Treasury [OCDS eTenders API](https://ocds-api.etenders.gov.za/).
 
-## Features (planned)
+![Tender Insight Hub landing page](docs/screenshots/landing.jpg)
 
-- **Keyword search and filtering** of tenders by province, deadline, buyer and budget
-- **Company profiles** (sector, services, CIDB/BBBEE certifications, coverage, experience)
-- **AI summaries** of tender documents (PDF/ZIP), highlighting objective, scope, deadline and eligibility
-- **Readiness scoring**: a suitability score out of 100, a matched/unmatched checklist and a recommendation
-- **Team workspace**: save tenders, track status, leave notes and assign tasks
-- **Public REST API** documented with OpenAPI/Swagger
-- **SaaS plans** (Free / Basic / Pro) with feature and seat limits
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/search.jpg" alt="Full-text tender search with filters"><br><sub><b>Search</b>: full-text search across open tenders, with province, buyer and deadline filters</sub></td>
+    <td width="50%"><img src="docs/screenshots/workspace.jpg" alt="Team workspace ranked by match score"><br><sub><b>Workspace</b>: the team's saved tenders, ranked by readiness score</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/summary.jpg" alt="AI summary of a tender's documents"><br><sub><b>AI summary</b>: scope, dates, CIDB, B-BBEE and evaluation criteria pulled from the bid documents</sub></td>
+    <td><img src="docs/screenshots/readiness.jpg" alt="Rule-based readiness check"><br><sub><b>Match This Tender</b>: a transparent, rule-based score against the company profile</sub></td>
+  </tr>
+</table>
+
+## Features
+
+- **Tender discovery.** Tenders are synced from the OCDS API every few hours and enriched with
+  province, category, briefing and contact details from the eTenders portal. Search them with
+  PostgreSQL full-text search and filters.
+- **AI document summaries.** The app downloads the bid documents (PDF, DOCX, ZIP), picks the
+  passages that matter and has an LLM turn them into a plain-language summary with structured
+  requirements.
+- **Readiness scoring.** "Match This Tender" checks CIDB grading, provinces, B-BBEE, experience,
+  certifications, scope and briefings against the company profile. You get a score out of 100,
+  a checklist and a recommendation.
+- **Team workspace.** Save tenders, move them through a bid pipeline (Pending → Submitted), and
+  keep a status history, notes and assigned tasks.
+- **Notifications.** In-app alerts for assignments, status changes and finished summaries, plus
+  reminders before closing dates and compulsory briefings.
+- **SaaS plans.** Free, Basic and Pro, with seat, search and feature limits enforced on the server.
+  CSV and PDF reports are available on Pro.
+- **Public REST API.** API keys, OpenAPI docs and rate limiting, serving enriched tenders, spend
+  analytics, document summaries and readiness checks to third-party systems.
+- **One-click demo.** Each visitor gets a private, pre-filled demo workspace that cleans itself
+  up after 24 hours.
+
+## Try it
+
+```bash
+git clone https://github.com/TeekayVuyisile/etender_system.git
+cd etender_system
+docker compose up --build
+```
+
+Open **http://localhost:8080**. See [Quick start with Docker](#quick-start-with-docker) for the
+optional settings (AI summaries need a free Groq API key).
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph clients ["Clients"]
+        direction LR
+        browser(["Browser"])
+        apps(["Third-party apps<br/>X-API-Key"])
+    end
+
+    subgraph compose ["Docker Compose"]
+        direction LR
+        web["web<br/>nginx + React build"]
+        api["api<br/>FastAPI"]
+        worker["worker<br/>sync + reminders"]
+        migrate["migrate<br/>Alembic, runs once"]
+        pg[("PostgreSQL<br/>teams, tenders,<br/>workspace, plans")]
+        mongo[("MongoDB<br/>AI summaries, scores,<br/>notifications, logs")]
+    end
+
+    subgraph external ["External services"]
+        direction LR
+        groq["Groq LLM"]
+        etenders["eTenders OCDS API<br/>+ portal"]
+    end
+
+    browser --> web
+    apps --> web
+    web -- "/api, /docs" --> api
+    api --> pg
+    api --> mongo
+    migrate --> pg
+    worker --> pg
+    worker --> mongo
+    worker -. "every 6 h" .-> etenders
+    api -. "summaries" .-> groq
+```
+
+**Design decisions**
+
+- **Two databases, each for what it's good at.** Relational data with constraints (teams,
+  tenders, workspace, plans) lives in PostgreSQL. Variable-shaped AI output, match results,
+  notifications and logs live in MongoDB.
+- **Rule-based scoring instead of AI scoring.** The LLM only extracts requirements. The score is
+  calculated by code, so it's repeatable, explainable line by line and free to recalculate.
+- **Fitting a large document into a small token budget.** Tender packs run to 50–150 pages, while
+  the free LLM tier allows about 8k tokens a minute. A keyword-scored excerpt selector sends only
+  the passages that matter.
+- **A separate worker with a database lock.** Scheduled syncs and reminders run outside the API.
+  A PostgreSQL lock guarantees only one sync runs at a time, even with several processes.
+- **Multi-tenancy by team.** Every query is scoped to the user's team, and plan limits are
+  enforced by server-side dependencies, not just hidden in the UI.
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (Python 3.12), Pydantic, SQLAlchemy, Alembic |
-| Databases | PostgreSQL (structured data), MongoDB (AI results, logs) |
-| Frontend | React, TypeScript, Tailwind CSS, Vite |
-| AI | Groq LLM API |
-| Tooling | GitHub Actions (CI), Docker Compose |
+| Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic |
+| Data | PostgreSQL (Neon in development), MongoDB (Atlas in development) |
+| AI | Groq (`openai/gpt-oss-120b`), PyMuPDF and python-docx for text extraction |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router |
+| Auth | JWT (PyJWT), Argon2 password hashing, hashed API keys |
+| Infrastructure | Docker Compose, nginx, GitHub Actions (CI with a SQLite/PostgreSQL test matrix and image builds) |
+| Quality | pytest (198 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
 
-## Project structure
+## How it works
 
-```
-backend/    FastAPI application
-frontend/   React application
-```
-
-## Tender data
+### Tender data
 
 Tenders are imported from the [OCDS eTenders API](https://ocds-api.etenders.gov.za/swagger),
 upserted into PostgreSQL, and each run is recorded in MongoDB (`tender_sync_runs`).
@@ -55,7 +148,7 @@ Some notes on the source data:
 - A small number of records cause the OCDS API to return HTTP 500; the sync narrows failing pages
   down and skips only those records.
 
-## AI pipeline
+### AI pipeline
 
 Tender summaries are generated on request (`POST /api/tenders/{id}/summary`) as a background job;
 the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
@@ -79,7 +172,7 @@ the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
 Scanned documents without a text layer fall back to a summary of the tender's portal details,
 and say so. LLM calls are serialised and retried on rate limits.
 
-## Readiness scoring
+### Readiness scoring
 
 "Match This Tender" (`POST /api/tenders/{id}/match`) compares the requirements the AI extracted
 with the team's company profile. Scoring is **rule-based, not AI-based**, so every point traces
@@ -101,7 +194,7 @@ required CIDB grading, a mandatory B-BBEE level or a compulsory briefing makes a
 requirements are. Results are stored per team in MongoDB (`match_results`), flagged as outdated
 when the profile or summary changes, and used to rank the team's workspace.
 
-## SaaS plans
+### SaaS plans
 
 | | Free | Basic | Pro |
 |---|---|---|---|
@@ -116,7 +209,7 @@ requests return `403` with `{"code": "upgrade_required", "required_plan": ...}`.
 distinct combination of keywords and filters per calendar week (Monday, SA time), so paging or
 re-sorting doesn't count. Billing is simulated: team owners switch plans on the Plan page.
 
-## Public API
+### Public API
 
 Documented with OpenAPI at `/docs`. Authenticate with an API key (created by a team owner on
 the API page) in the `X-API-Key` header; a Bearer token also works. 60 requests per minute per
@@ -140,7 +233,7 @@ API keys are stored as SHA-256 hashes and shown once on creation. Because neithe
 source publishes award values, spend-by-buyer reports advertised activity and known values
 rather than actual spend.
 
-## Notifications
+### Notifications
 
 In-app notifications appear under the bell in the header: task assignments, status changes,
 new notes, finished AI summaries, and reminders when a saved tender closes within 3 days or a
@@ -151,7 +244,7 @@ They're stored in MongoDB (`notifications`) and delivered through a `Notifier` w
 channels. Only the in-app channel exists today; an email channel can be added without
 changing the code that raises notifications.
 
-## Demo mode
+### Demo mode
 
 With `DEMO_MODE_ENABLED=true`, the login page offers **Try the demo**: one click creates a
 private demo team (*Thabo's Civil Works*, Pro plan, three members) whose workspace is built
@@ -239,3 +332,59 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/tih_test pytest
 CI runs the backend tests on both SQLite and a PostgreSQL service container, and on PostgreSQL
 also applies every migration to an empty database and checks the models match (`alembic check`).
 It also validates `docker-compose.yml` and builds both Docker images.
+
+## Project structure
+
+```
+.
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/     HTTP endpoints (auth, tenders, workspace, team, public API...)
+│   │   ├── core/           settings, security, plan definitions, reference data
+│   │   ├── models/         SQLAlchemy models (PostgreSQL)
+│   │   ├── schemas/        Pydantic request and response models
+│   │   ├── services/       business logic: sync, AI pipeline, scoring, notifications, demo
+│   │   └── cli.py          sync, scheduler and demo commands
+│   ├── alembic/            database migrations
+│   ├── tests/              pytest suite
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── pages/          one component per route
+│   │   ├── landing/        landing page sections
+│   │   └── tenders/, workspace/, readiness/, summaries/, ...   features grouped by domain
+│   ├── nginx.conf
+│   └── Dockerfile
+├── docker-compose.yml
+└── .github/workflows/ci.yml
+```
+
+## What I learned
+
+I built this project on my own to go from basic Python to shipping a full-stack product. These
+are the things that stuck with me most:
+
+- **Real-world data is messy.** The OCDS API returns HTTP 500 for a handful of records, reports
+  a budget of 0 for almost every tender, and labels South African local times as UTC. A lot of
+  the sync code exists to cope with that gracefully: narrowing failing pages down to single
+  records, enriching from a second source, and not trusting what the data claims to be.
+- **Working within LLM limits.** I had to fit 100-page documents into a free-tier token budget.
+  That meant selecting excerpts rather than sending everything, asking for structured JSON,
+  validating it with Pydantic, and keeping decisions like scoring out of the model.
+- **Frontend from scratch.** React, TypeScript and Tailwind, with server state in TanStack Query,
+  protected routes and plan-aware UI.
+- **CI/CD.** GitHub Actions with a test matrix (SQLite and a real PostgreSQL service container),
+  migration drift checks, image builds, and branch protection with required status checks. I also
+  learned that renaming a CI job silently breaks the required checks until the ruleset is
+  updated.
+- **Docker.** Layer caching, multi-stage builds, non-root containers, health checks, startup
+  ordering with `depends_on`, why `localhost` inside a container isn't your machine, and why
+  proxied apps need to trust `X-Forwarded-For` for per-IP rate limits.
+- **Testing catches what you don't expect.** One test passed in CI but failed locally, because
+  the suite was reading my local `.env`. Pinning configuration in tests fixed it.
+- **A professional Git workflow.** Feature branches, Conventional Commits and pull requests
+  for every change, merged only when CI passed.
+
+I used Claude Code as an AI pair programmer throughout. I owned the Git and GitHub side (every
+branch, commit, PR and merge) and worked through the CI and Docker configuration line by line
+until I understood it.
