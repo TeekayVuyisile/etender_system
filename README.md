@@ -161,7 +161,40 @@ changes. Demo teams are deleted after `DEMO_TTL_HOURS` (default 24) by an hourly
 also keeps a few demo-ready AI summaries in stock (`python -m app.cli prepare-demo` does the
 same on demand). Demo creation is rate-limited to 10 per hour per visitor.
 
-## Getting started
+## Quick start with Docker
+
+Runs the whole stack (React app, API, background worker, PostgreSQL and MongoDB) with one
+command. Only [Docker](https://www.docker.com/products/docker-desktop/) is required.
+
+```bash
+cp .env.example .env     # optional: add a GROQ_API_KEY for AI summaries, set JWT_SECRET_KEY
+docker compose up --build
+```
+
+Open **http://localhost:8080**. On first start the worker imports the last `SYNC_DAYS` (default 7)
+of tenders, which takes a few minutes; it then syncs every 6 hours.
+
+| Service    | What it does                                                       |
+| ---------- | ------------------------------------------------------------------ |
+| `web`      | nginx: serves the built React app and proxies `/api` and `/docs`   |
+| `api`      | FastAPI backend                                                    |
+| `worker`   | Scheduled tender sync, deadline reminders and demo upkeep          |
+| `migrate`  | Applies Alembic migrations, then exits; `api` and `worker` wait for it |
+| `postgres` | PostgreSQL 18                                                      |
+| `mongo`    | MongoDB 8                                                          |
+
+Only port 8080 is published; the databases are reachable only inside the Compose network and
+keep their data in named volumes.
+
+```bash
+docker compose logs -f worker                                   # watch the tender sync
+docker compose exec api python -m app.cli sync-tenders --days 30  # import more history
+docker compose down        # stop (data is kept)
+docker compose down -v     # stop and delete the database volumes
+docker system df           # see how much disk Docker uses; `docker system prune` frees it
+```
+
+## Getting started (local development)
 
 **Prerequisites:** Python 3.12+, Node.js 20+
 
@@ -205,3 +238,4 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/tih_test pytest
 
 CI runs the backend tests on both SQLite and a PostgreSQL service container, and on PostgreSQL
 also applies every migration to an empty database and checks the models match (`alembic check`).
+It also validates `docker-compose.yml` and builds both Docker images.
