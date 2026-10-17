@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { LuDownload, LuLock } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { apiDownload, getErrorMessage } from '../lib/api'
@@ -22,7 +23,7 @@ export function ExportButtons() {
         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-400 hover:text-slate-600"
         title="Report exports are available on the Pro plan"
       >
-        🔒 Export (Pro)
+        <LuLock aria-hidden="true" /> Export (Pro)
       </Link>
     )
   }
@@ -36,11 +37,15 @@ export function ExportButtons() {
             type="button"
             disabled={download.isPending}
             onClick={() => download.mutate(format)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-emerald-600 hover:text-emerald-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-emerald-600 hover:text-emerald-700 disabled:opacity-60"
           >
-            {download.isPending && download.variables === format
-              ? 'Preparing…'
-              : `⬇ ${format === 'csv' ? 'CSV' : 'PDF report'}`}
+            {download.isPending && download.variables === format ? (
+              'Preparing…'
+            ) : (
+              <>
+                <LuDownload aria-hidden="true" /> {format === 'csv' ? 'CSV' : 'PDF report'}
+              </>
+            )}
           </button>
         ))}
       </div>

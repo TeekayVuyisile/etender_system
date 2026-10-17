@@ -1,3 +1,4 @@
+import { LuArrowRight } from 'react-icons/lu'
 import { Link, useSearchParams } from 'react-router'
 
 import { ErrorAlert } from '../components/ui/Alert'
@@ -93,9 +94,9 @@ export function WorkspacePage() {
           </p>
           <Link
             to="/tenders"
-            className="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
           >
-            Find tenders to save →
+            Find tenders to save <LuArrowRight aria-hidden="true" />
           </Link>
         </div>
       )}

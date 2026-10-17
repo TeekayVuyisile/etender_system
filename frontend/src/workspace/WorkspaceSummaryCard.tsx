@@ -1,3 +1,4 @@
+import { LuArrowRight } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { Spinner } from '../components/ui/Spinner'
@@ -27,9 +28,9 @@ export function WorkspaceSummaryCard() {
       )}
       <Link
         to="/workspace"
-        className="mt-6 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+        className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
       >
-        Open workspace →
+        Open workspace <LuArrowRight aria-hidden="true" />
       </Link>
     </section>
   )

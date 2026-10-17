@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import { LuArrowLeft, LuArrowRight } from 'react-icons/lu'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { ErrorAlert } from '../components/ui/Alert'
@@ -34,8 +35,11 @@ export function WorkspaceEntryPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/workspace" className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-        ← Back to workspace
+      <Link
+        to="/workspace"
+        className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+      >
+        <LuArrowLeft aria-hidden="true" /> Back to workspace
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -60,9 +64,9 @@ export function WorkspaceEntryPage() {
         <div className="flex flex-col items-end gap-2">
           <Link
             to={`/tenders/${tender.id}`}
-            className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
           >
-            View full tender details →
+            View full tender details <LuArrowRight aria-hidden="true" />
           </Link>
           {confirmRemove ? (
             <div className="flex items-center gap-2 text-sm">

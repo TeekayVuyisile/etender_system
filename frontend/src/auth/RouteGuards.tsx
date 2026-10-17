@@ -25,7 +25,7 @@ export function GuestOnly() {
     return <FullPageSpinner />
   }
   if (user) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/dashboard" replace />
   }
   return <Outlet />
 }

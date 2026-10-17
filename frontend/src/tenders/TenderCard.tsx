@@ -1,3 +1,4 @@
+import { LuCalendar, LuFileText, LuMapPin, LuTag } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import { deadlineLabel, formatDate, readableCase, type Urgency } from '../lib/format'
@@ -39,17 +40,27 @@ export function TenderCard({ tender }: { tender: TenderListItem }) {
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-        <span>📍 {tender.province ?? 'Province not specified'}</span>
-        <span>🗓 Closes {formatDate(tender.closing_at)}</span>
-        {tender.category && <span className="max-w-xs truncate">🏷 {tender.category}</span>}
-        {tender.document_count > 0 && (
-          <span>
-            📄 {tender.document_count} document{tender.document_count === 1 ? '' : 's'}
+          <span className="inline-flex items-center gap-1">
+            <LuMapPin aria-hidden="true" /> {tender.province ?? 'Province not specified'}
           </span>
-        )}
-        {tender.briefing_compulsory && (
-          <span className="font-medium text-amber-700">Compulsory briefing</span>
-        )}
+          <span className="inline-flex items-center gap-1">
+            <LuCalendar aria-hidden="true" /> Closes {formatDate(tender.closing_at)}
+          </span>
+          {tender.category && (
+            <span className="inline-flex max-w-xs items-center gap-1">
+              <LuTag className="shrink-0" aria-hidden="true" />
+              <span className="truncate">{tender.category}</span>
+            </span>
+          )}
+          {tender.document_count > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <LuFileText aria-hidden="true" />
+              {tender.document_count} document{tender.document_count === 1 ? '' : 's'}
+            </span>
+          )}
+          {tender.briefing_compulsory && (
+            <span className="font-medium text-amber-700">Compulsory briefing</span>
+          )}
         </div>
         <SaveTenderButton tenderId={tender.id} size="sm" />
       </div>

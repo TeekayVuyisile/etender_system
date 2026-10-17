@@ -22,7 +22,7 @@ export function OnboardingPage() {
     )
   }
   if (profileQuery.data) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/dashboard" replace />
   }
 
   return (
@@ -37,8 +37,8 @@ export function OnboardingPage() {
               Set up {user.team.name}'s company profile
             </h1>
             <p className="mt-2 max-w-2xl text-slate-600">
-              We use this to score how well each tender fits your company. You can change it at
-              any time.
+              We use this to score how well each tender fits your company. You can change it at any
+              time.
             </p>
           </div>
           <Button variant="secondary" onClick={logout}>

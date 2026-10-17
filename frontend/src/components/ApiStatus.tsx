@@ -1,13 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-
-import { apiRequest } from '../lib/api'
-import type { HealthResponse } from '../lib/types'
+import { useHealth } from '../lib/health'
 
 export function ApiStatus() {
-  const { isPending, isError } = useQuery({
-    queryKey: ['health'],
-    queryFn: () => apiRequest<HealthResponse>('/health'),
-  })
+  const { isPending, isError } = useHealth()
 
   if (isPending) {
     return <StatusBadge color="bg-slate-400" label="Checking API…" />

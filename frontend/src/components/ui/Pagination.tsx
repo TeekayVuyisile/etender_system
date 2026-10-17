@@ -1,3 +1,5 @@
+import { LuArrowLeft, LuArrowRight } from 'react-icons/lu'
+
 import { Button } from './Button'
 
 type PaginationProps = {
@@ -16,7 +18,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
   return (
     <nav className="flex items-center justify-between gap-4" aria-label="Pagination">
       <Button variant="secondary" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-        ← Previous
+        <LuArrowLeft aria-hidden="true" /> Previous
       </Button>
       <span className="text-sm text-slate-600">
         Page {page} of {totalPages}
@@ -26,7 +28,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
-        Next →
+        Next <LuArrowRight aria-hidden="true" />
       </Button>
     </nav>
   )

@@ -1,17 +1,15 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { LuPlay } from 'react-icons/lu'
 
 import { ErrorAlert } from '../components/ui/Alert'
-import { apiRequest, getErrorMessage } from '../lib/api'
-import type { HealthResponse } from '../lib/types'
+import { getErrorMessage } from '../lib/api'
+import { useHealth } from '../lib/health'
 import { useAuth } from './useAuth'
 
 /** "Try the demo": shown only when the server has demo mode turned on. */
 export function DemoButton() {
   const { startDemo } = useAuth()
-  const health = useQuery({
-    queryKey: ['health'],
-    queryFn: () => apiRequest<HealthResponse>('/health'),
-  })
+  const health = useHealth()
   const demo = useMutation({ mutationFn: startDemo })
 
   if (!health.data?.demo_mode) return null
@@ -26,9 +24,15 @@ export function DemoButton() {
         type="button"
         onClick={() => demo.mutate()}
         disabled={demo.isPending}
-        className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
       >
-        {demo.isPending ? 'Setting up your demo workspace…' : '▶ Try the demo'}
+        {demo.isPending ? (
+          'Setting up your demo workspace…'
+        ) : (
+          <>
+            <LuPlay aria-hidden="true" /> Try the demo
+          </>
+        )}
       </button>
       {demo.isError && (
         <div className="mt-3 text-left">

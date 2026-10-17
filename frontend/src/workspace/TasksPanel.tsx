@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { LuX } from 'react-icons/lu'
 
 import { ErrorAlert } from '../components/ui/Alert'
 import { Button } from '../components/ui/Button'
@@ -56,7 +57,9 @@ function TaskItem({
           aria-label={`Mark "${task.title}" as ${task.is_done ? 'not done' : 'done'}`}
         />
         <div className="min-w-0 flex-1">
-          <p className={`text-sm ${task.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+          <p
+            className={`text-sm ${task.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}
+          >
             {task.title}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -92,7 +95,7 @@ function TaskItem({
           className="text-xs font-medium text-slate-400 hover:text-red-600"
           aria-label={`Delete task "${task.title}"`}
         >
-          ✕
+          <LuX className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
       {(updateTask.isError || deleteTask.isError) && (

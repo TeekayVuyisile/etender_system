@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { LuLock } from 'react-icons/lu'
 import { Link } from 'react-router'
 
 import type { Plan, PlanFeature } from '../lib/types'
@@ -15,8 +16,8 @@ export function UpgradePrompt({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-      <p className="text-sm text-emerald-900">
-        <span className="mr-1">🔒</span>
+      <p className="flex items-center gap-2 text-sm text-emerald-900">
+        <LuLock className="shrink-0" aria-hidden="true" />
         {message}
       </p>
       <Link

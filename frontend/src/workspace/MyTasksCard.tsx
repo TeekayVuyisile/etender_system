@@ -16,7 +16,7 @@ export function MyTasksCard() {
         {tasksQuery.isPending && <Spinner />}
         {tasksQuery.isError && <ErrorAlert message={getErrorMessage(tasksQuery.error)} />}
         {tasksQuery.data?.length === 0 && (
-          <p className="text-sm text-slate-500">Nothing assigned to you right now. 🎉</p>
+          <p className="text-sm text-slate-500">Nothing assigned to you right now.</p>
         )}
         {tasksQuery.data && tasksQuery.data.length > 0 && (
           <ul className="divide-y divide-slate-100">
@@ -28,7 +28,9 @@ export function MyTasksCard() {
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">
                     {task.due_date && (
-                      <span className={isOverdue(task.due_date) ? 'font-semibold text-red-600' : ''}>
+                      <span
+                        className={isOverdue(task.due_date) ? 'font-semibold text-red-600' : ''}
+                      >
                         Due {formatDate(task.due_date)} ·{' '}
                       </span>
                     )}

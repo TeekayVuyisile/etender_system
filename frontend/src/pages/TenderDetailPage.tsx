@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { LuArrowLeft, LuExternalLink } from 'react-icons/lu'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { ErrorAlert } from '../components/ui/Alert'
@@ -37,9 +38,9 @@ export function TenderDetailPage() {
       <button
         type="button"
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/tenders'))}
-        className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+        className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
       >
-        ← Back to results
+        <LuArrowLeft aria-hidden="true" /> Back to results
       </button>
 
       <div>
@@ -67,7 +68,9 @@ export function TenderDetailPage() {
               <Detail label="Province">
                 {tender.province ?? 'Not specified'}
                 {tender.province_source === 'inferred' && (
-                  <span className="block text-xs text-slate-500">Estimated from the description</span>
+                  <span className="block text-xs text-slate-500">
+                    Estimated from the description
+                  </span>
                 )}
               </Detail>
               <Detail label="Estimated value">{formatCurrency(tender.estimated_value)}</Detail>
@@ -171,14 +174,17 @@ export function TenderDetailPage() {
             href="https://www.etenders.gov.za/Home/opportunities"
             target="_blank"
             rel="noreferrer"
-            className="block text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
           >
-            Find on the eTenders portal ↗
+            Find on the eTenders portal <LuExternalLink aria-hidden="true" />
             <span className="block text-xs font-normal text-slate-500">
               Search for reference {tender.tender_number}
             </span>
           </a>
-          <Link to="/tenders" className="block text-sm font-medium text-slate-600 hover:text-slate-900">
+          <Link
+            to="/tenders"
+            className="block text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
             New search
           </Link>
         </div>
