@@ -1,0 +1,90 @@
+# Full stack: `docker compose up --build`, then open http://localhost:8080.
+# Optional settings are read from .env (see .env.example).
+
+x-backend: &backend
+  build: ./backend
+  image: tender-insight-hub-backend
+  restart: unless-stopped
+  environment:
+    ENVIRONMENT: docker
+    DATABASE_URL: postgresql://tih:${POSTGRES_PASSWORD:-tih-local-password}@postgres:5432/tender_insight_hub
+    MONGODB_URL: mongodb://mongo:27017
+    MONGODB_DB_NAME: tender_insight_hub
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY:-docker-local-secret-change-me}
+    GROQ_API_KEY: ${GROQ_API_KEY:-}
+    DEMO_MODE_ENABLED: ${DEMO_MODE_ENABLED:-false}
+    SYNC_DAYS: ${SYNC_DAYS:-7}
+    # The worker service runs the scheduled sync.
+    SYNC_SCHEDULE_ENABLED: "false"
+    CORS_ORIGINS: '["http://localhost:${WEB_PORT:-8080}"]'
+    # Trust X-Forwarded-For from nginx so rate limits see the real client IP.
+    # Safe because the API port is not published.
+    FORWARDED_ALLOW_IPS: "*"
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tih
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tih-local-password}
+      POSTGRES_DB: tender_insight_hub
+    volumes:
+      # PostgreSQL 18+ images keep data in a versioned directory below this path.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tih -d tender_insight_hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.cli", "scheduler"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  mongo-data:

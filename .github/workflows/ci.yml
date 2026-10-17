@@ -116,3 +116,17 @@ jobs:
 
       - name: Type-check and build
         run: npm run build
+
+  docker:
+    name: Docker (build images)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
