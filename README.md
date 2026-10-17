@@ -388,3 +388,7 @@ are the things that stuck with me most:
 I used Claude Code as an AI pair programmer throughout. I owned the Git and GitHub side (every
 branch, commit, PR and merge) and worked through the CI and Docker configuration line by line
 until I understood it.
+
+## License
+
+[MIT](LICENSE)
