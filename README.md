@@ -1,6 +1,7 @@
 # Tender Insight Hub
 
 [![CI](https://github.com/TeekayVuyisile/etender_system/actions/workflows/ci.yml/badge.svg)](https://github.com/TeekayVuyisile/etender_system/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/Live_demo-tender--insight--hub.onrender.com-10B981?logo=render&logoColor=white)](https://tender-insight-hub.onrender.com)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
@@ -10,6 +11,9 @@
 A multi-tenant SaaS platform that helps South African SMEs **find public tenders that fit their
 business, understand the bid documents in minutes and decide where they can win**. It's built on
 live data from the National Treasury [OCDS eTenders API](https://ocds-api.etenders.gov.za/).
+
+**Live demo: [tender-insight-hub.onrender.com](https://tender-insight-hub.onrender.com)**. Click
+"Try the live demo" for a private, pre-filled workspace, no sign-up needed.
 
 ![Tender Insight Hub landing page](docs/screenshots/landing.jpg)
 
@@ -47,6 +51,13 @@ live data from the National Treasury [OCDS eTenders API](https://ocds-api.etende
   up after 24 hours.
 
 ## Try it
+
+The quickest way is the [live demo](https://tender-insight-hub.onrender.com): "Try the live
+demo" opens a private workspace with sample tenders, tasks and team members, which resets after
+24 hours. It runs on free hosting, so the first request after a quiet spell can take up to a
+minute while the server wakes up.
+
+To run it yourself:
 
 ```bash
 git clone https://github.com/TeekayVuyisile/etender_system.git
@@ -369,8 +380,9 @@ docker system df           # see how much disk Docker uses; `docker system prune
 
 ## Deployment
 
-Production runs on free tiers, defined as code in [`render.yaml`](render.yaml) (a Render
-Blueprint):
+Production runs on free tiers at
+**[tender-insight-hub.onrender.com](https://tender-insight-hub.onrender.com)**, defined as code
+in [`render.yaml`](render.yaml) (a Render Blueprint):
 
 | Part | Where | Notes |
 |---|---|---|
@@ -378,7 +390,7 @@ Blueprint):
 | API | Render web service (Docker, Frankfurt) | Runs Alembic migrations on start, then FastAPI; also works through the summary queue |
 | PostgreSQL | Neon (Frankfurt) | |
 | Redis | Redis Cloud free plan (Frankfurt) | Cache, rate limits, job queue and Groq token budget |
-| MongoDB | MongoDB Atlas free cluster | |
+| MongoDB | MongoDB Atlas free cluster | Render's free plan has no fixed outbound IPs, so access is controlled by credentials and TLS rather than an IP allowlist |
 | Scheduled jobs | GitHub Actions ([`scheduled-jobs.yml`](.github/workflows/scheduled-jobs.yml)) | Tender sync every 6 hours, reminders and demo upkeep hourly |
 
 - **Same city.** The API, Neon and Redis all run in Frankfurt, a few milliseconds apart.
@@ -390,6 +402,9 @@ Blueprint):
   to wake. The static frontend never sleeps, and shows a "waking up the server" notice while
   the first request waits. Scheduled work runs from GitHub Actions rather than inside the API,
   because a sleeping service can't run a scheduler.
+- **The cache in production.** A keyword search from South Africa takes about 850 ms on a miss
+  and 610 ms on a hit (`X-Cache` header). Most of what remains is the round trip to Frankfurt
+  and the signed-in user lookup.
 
 ## Getting started (local development)
 
