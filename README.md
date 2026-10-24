@@ -94,9 +94,6 @@ flowchart TB
     worker --> pg
     worker --> mongo
     worker -. "invalidate" .-> redis
-    migrate --> pg
-    worker --> pg
-    worker --> mongo
     worker -. "every 6 h" .-> etenders
     api -. "summaries" .-> groq
 ```
@@ -126,13 +123,11 @@ flowchart TB
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic |
 | Data | PostgreSQL (Neon in development), MongoDB (Atlas in development), Redis (cache and rate limits) |
-| Data | PostgreSQL (Neon in development), MongoDB (Atlas in development) |
 | AI | Groq (`openai/gpt-oss-120b`), PyMuPDF and python-docx for text extraction |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router |
 | Auth | JWT (PyJWT), Argon2 password hashing, hashed API keys |
 | Infrastructure | Docker Compose, nginx, GitHub Actions (CI with a SQLite/PostgreSQL test matrix and image builds) |
 | Quality | pytest (212 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
-| Quality | pytest (198 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
 
 ## How it works
 
