@@ -1,4 +1,4 @@
-"""Buyer analytics for the public API, cached in MongoDB.
+"""Buyer analytics for the public API, cached in Redis (or MongoDB without Redis).
 
 Neither eTenders source publishes awarded contract values, so "spend" here means what buyers
 advertise: how many tenders they put out, and the total of the values that are known
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db.mongo import get_mongo_db
 from app.models import Tender
+from app.services.cache import Cache, get_cache
 from app.services.tender_sync import SAST
 
 CACHE_TTL = timedelta(hours=1)
@@ -45,7 +46,26 @@ class MongoAnalyticsCache:
         )
 
 
+class RedisAnalyticsCache:
+    """Keys are tied to the tenders version, so a sync also refreshes the analytics."""
+
+    def __init__(self, cache: Cache) -> None:
+        self.cache = cache
+
+    def _key(self, key: str) -> str:
+        return f"analytics:v{self.cache.tenders_version()}:{key}"
+
+    def get(self, key: str) -> dict[str, Any] | None:
+        return self.cache.get_json(self._key(key))
+
+    def set(self, key: str, value: dict[str, Any]) -> None:
+        self.cache.set_json(self._key(key), value, int(CACHE_TTL.total_seconds()))
+
+
 def get_analytics_cache() -> AnalyticsCache:
+    cache = get_cache()
+    if cache.enabled:
+        return RedisAnalyticsCache(cache)
     return MongoAnalyticsCache(get_mongo_db()["analytics_cache"])
 
 

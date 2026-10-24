@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Tender
 from app.schemas.summary import TenderSummaryContent
+from app.services.cache import get_cache
 from app.services.documents import (
     DocumentError,
     ExtractedDocument,
@@ -164,6 +165,7 @@ def run_summary_job(
             if value and tender.estimated_value is None:
                 tender.estimated_value = Decimal(str(round(value, 2)))
                 db.commit()
+                get_cache().invalidate_tenders()
         store.save_ready(tender_id, result)
         if on_ready:
             on_ready(tender)

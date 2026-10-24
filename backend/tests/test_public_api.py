@@ -109,7 +109,7 @@ def test_bearer_token_also_works(client: TestClient, db: Session, owner: dict[st
 
 
 def test_rate_limiter_blocks_after_limit():
-    limiter = RateLimiter(limit=2, window_seconds=60)
+    limiter = RateLimiter("test", limit=2, window_seconds=60)
     limiter.check(1)
     limiter.check(1)
     with pytest.raises(Exception) as error:
