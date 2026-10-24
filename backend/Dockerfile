@@ -16,6 +16,7 @@ RUN useradd --create-home --uid 1000 app
 COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app alembic ./alembic
 COPY --chown=app:app app ./app
+COPY --chown=app:app start.sh ./
 
 USER app
 
