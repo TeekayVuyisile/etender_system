@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     groq_api_key: str | None = None
     groq_model: str = "openai/gpt-oss-120b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    # Groq's per-minute token limit for the API key, shared by every process (via Redis).
+    groq_tokens_per_minute: int = 8000
+
+    # With Redis, AI summaries are queued and this process helps work through the queue.
+    summary_worker_enabled: bool = True
 
     # Automatic tender sync. Enable it here to run inside the API process, or run
     # `python -m app.cli scheduler` as a separate worker.

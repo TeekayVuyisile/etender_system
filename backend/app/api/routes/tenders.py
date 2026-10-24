@@ -15,7 +15,7 @@ from app.schemas.readiness import MatchResultResponse
 from app.schemas.summary import TenderSummaryResponse
 from app.schemas.sync import SyncRunInfo, SyncStatusResponse
 from app.schemas.tender import BuyerOption, TenderDetail, TenderSearchResponse
-from app.services import matching, sync_job
+from app.services import matching, summary_queue, sync_job
 from app.services import notification_events as events
 from app.services.cache import Cache, get_cache, mark_response
 from app.services.llm import LLMClient, LLMError, get_llm_client
@@ -231,6 +231,7 @@ def generate_tender_summary(
     llm: LLM,
     session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
     notifier: Annotated[Notifier, Depends(get_notifier)],
+    cache: RedisCache,
     refresh: bool = False,
 ) -> TenderSummaryResponse:
     """Start generating the AI summary in the background. Poll GET .../summary for the result.
@@ -244,18 +245,20 @@ def generate_tender_summary(
     if existing and existing.get("status") == "ready" and not refresh:
         return to_response(tender_id, existing)
     if store.try_start(tender_id, user.id, user.team_id):
+        # Queued in Redis when available, so the job survives restarts; otherwise run it here.
+        if not summary_queue.enqueue(cache, tender_id, user.id, user.team_id):
 
-        def notify_requester(tender: Tender) -> None:
-            notifier.send(events.summary_ready(user.id, user.team_id, tender))
+            def notify_requester(tender: Tender) -> None:
+                notifier.send(events.summary_ready(user.id, user.team_id, tender))
 
-        background_tasks.add_task(
-            run_summary_job,
-            tender_id,
-            session_factory=session_factory,
-            store=store,
-            llm=llm,
-            on_ready=notify_requester,
-        )
+            background_tasks.add_task(
+                run_summary_job,
+                tender_id,
+                session_factory=session_factory,
+                store=store,
+                llm=llm,
+                on_ready=notify_requester,
+            )
         background_tasks.add_task(
             activity.log,
             "tender.summary_requested",

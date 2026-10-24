@@ -1,7 +1,7 @@
 """Command-line tasks. Run from the backend folder, e.g.:
 
 python -m app.cli sync-tenders --days 30   # one sync now
-python -m app.cli scheduler                # sync + reminders on a schedule (worker process)
+python -m app.cli scheduler                # sync, reminders and summary queue (worker process)
 python -m app.cli prepare-demo             # AI summaries for demo workspaces
 """
 
@@ -12,6 +12,7 @@ from datetime import timedelta
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.services import summary_queue
 from app.services.demo import prepare_demo_summaries
 from app.services.llm import get_llm_client
 from app.services.summary_store import get_summary_store
@@ -67,6 +68,11 @@ def main() -> None:
             jobs.append(demo_upkeep_job(SessionLocal))
         for job in jobs:
             job.start()
+        # Also work through queued AI summaries (with Redis), alongside the API processes.
+        if settings.summary_worker_enabled and (
+            consumer := summary_queue.start_consumer(SessionLocal)
+        ):
+            jobs.append(consumer)
 
         def stop(*_: object) -> None:
             scheduler.stop(timeout=0)

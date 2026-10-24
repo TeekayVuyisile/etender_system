@@ -53,13 +53,13 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
-    # A cache only: capped memory, evicts least recently used keys, nothing saved to disk.
+    # Evicts only keys with a TTL (cache entries), never the job queue. Nothing saved to disk.
     command:
       - redis-server
       - --maxmemory
       - 64mb
       - --maxmemory-policy
-      - allkeys-lru
+      - volatile-lru
       - --save
       - ""
       - --appendonly

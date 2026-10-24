@@ -4,18 +4,45 @@ import json
 import logging
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol
+from uuid import uuid4
 
 import httpx
 
 from app.core.config import settings
+from app.services import cache
 
 logger = logging.getLogger(__name__)
 
-# The free tier allows ~8,000 tokens per minute, and one summary uses most of that,
-# so LLM calls are made one at a time across the whole app.
+# Without Redis, LLM calls are made one at a time in this process instead (one summary uses
+# most of the free tier's per-minute tokens).
 _llm_lock = threading.Lock()
+
+# Like the API rate limit (see api_keys.py), but each entry in the window counts its tokens:
+# entries are "<request id>:<tokens>", and the call may go ahead only if the tokens used in the
+# last minute plus its own fit the budget. Returns -1 when the tokens are reserved, otherwise
+# the milliseconds until the oldest entry leaves the window.
+TOKEN_BUDGET_SCRIPT = """
+local now = redis.call('TIME')
+local now_ms = now[1] * 1000 + math.floor(now[2] / 1000)
+local window = tonumber(ARGV[1])
+local tokens = tonumber(ARGV[3])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now_ms - window)
+local used = 0
+for _, member in ipairs(redis.call('ZRANGE', KEYS[1], 0, -1)) do
+  used = used + tonumber(string.match(member, ':(%d+)$'))
+end
+if used > 0 and used + tokens > tonumber(ARGV[2]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  return window - (now_ms - tonumber(oldest[2]))
+end
+redis.call('ZADD', KEYS[1], now_ms, ARGV[4] .. ':' .. tokens)
+redis.call('PEXPIRE', KEYS[1], window)
+return -1
+"""
 
 
 class LLMError(Exception):
@@ -31,6 +58,57 @@ class LLMResponse:
 
 class LLMClient(Protocol):
     def chat_json(self, system: str, user: str, max_tokens: int = 2000) -> LLMResponse: ...
+
+
+class TokenBudget:
+    """Groq's per-minute token limit, shared by every process that calls Groq.
+
+    The limit applies to the API key, so the API processes and the worker all spend the same
+    budget. Each call reserves its tokens in Redis first and waits if the last minute's calls
+    have used the budget up, instead of all of them hitting Groq and getting 429 errors.
+    """
+
+    KEY = "llm:tokens"
+
+    def __init__(self, tokens_per_minute: int, max_wait_seconds: float = 90) -> None:
+        self.tokens_per_minute = tokens_per_minute
+        self.max_wait_seconds = max_wait_seconds
+
+    def try_reserve(self, tokens: int) -> float | None:
+        """Seconds to wait before trying again (0 if reserved), or None without Redis."""
+        wait_ms = cache.get_cache().run(
+            lambda r: r.register_script(TOKEN_BUDGET_SCRIPT)(
+                keys=[cache.KEY_PREFIX + self.KEY],
+                args=[60_000, self.tokens_per_minute, tokens, uuid4().hex],
+            )
+        )
+        if wait_ms is None:
+            return None
+        return 0 if int(wait_ms) < 0 else int(wait_ms) / 1000 + 0.1
+
+    @contextmanager
+    def reserve(self, tokens: int) -> Iterator[None]:
+        # A call larger than the whole budget still goes ahead once nothing else is running.
+        tokens = min(tokens, self.tokens_per_minute)
+        deadline = time.monotonic() + self.max_wait_seconds
+        while (wait := self.try_reserve(tokens)) is not None and wait > 0:
+            if time.monotonic() + wait > deadline:
+                raise LLMError("AI service is busy, please try again later")
+            logger.info("Groq token budget used up, waiting %.0fs", wait)
+            time.sleep(wait)
+        if wait is None:
+            with _llm_lock:
+                yield
+        else:
+            yield
+
+
+def estimate_tokens(system: str, user: str, max_tokens: int) -> int:
+    """Groq counts the prompt plus the requested max_tokens against the limit up front."""
+    return (len(system) + len(user)) // 4 + max_tokens
+
+
+token_budget = TokenBudget(settings.groq_tokens_per_minute)
 
 
 class GroqClient:
@@ -55,7 +133,7 @@ class GroqClient:
         if self.model.startswith("openai/gpt-oss"):
             payload["reasoning_effort"] = "low"  # reasoning tokens count towards rate limits
 
-        with _llm_lock:
+        with token_budget.reserve(estimate_tokens(system, user, max_tokens)):
             body = self._post_with_retries(payload)
 
         try:
