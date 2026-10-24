@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "tender_insight_hub"
 
+    # Redis (optional): caches tender data and shares rate limits between API processes.
+    # Without it the app reads straight from PostgreSQL and rate limits per process.
+    redis_url: str | None = None
+
     jwt_secret_key: str = "dev-only-insecure-secret-change-me-in-env"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60

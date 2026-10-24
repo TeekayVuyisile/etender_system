@@ -75,6 +75,7 @@ flowchart TB
         migrate["migrate<br/>Alembic, runs once"]
         pg[("PostgreSQL<br/>teams, tenders,<br/>workspace, plans")]
         mongo[("MongoDB<br/>AI summaries, scores,<br/>notifications, logs")]
+        redis[("Redis<br/>cache, rate limits")]
     end
 
     subgraph external ["External services"]
@@ -88,6 +89,11 @@ flowchart TB
     web -- "/api, /docs" --> api
     api --> pg
     api --> mongo
+    api --> redis
+    migrate --> pg
+    worker --> pg
+    worker --> mongo
+    worker -. "invalidate" .-> redis
     migrate --> pg
     worker --> pg
     worker --> mongo
@@ -107,6 +113,10 @@ flowchart TB
   the passages that matter.
 - **A separate worker with a database lock.** Scheduled syncs and reminders run outside the API.
   A PostgreSQL lock guarantees only one sync runs at a time, even with several processes.
+- **Redis as a cache that can be lost.** Tender data only changes when the sync runs, so searches
+  are served from Redis and invalidated by a version bump after each sync. Rate limits live in
+  Redis too, so they hold across API processes. If Redis goes down, the app carries on reading
+  from PostgreSQL.
 - **Multi-tenancy by team.** Every query is scoped to the user's team, and plan limits are
   enforced by server-side dependencies, not just hidden in the UI.
 
@@ -115,11 +125,13 @@ flowchart TB
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic |
+| Data | PostgreSQL (Neon in development), MongoDB (Atlas in development), Redis (cache and rate limits) |
 | Data | PostgreSQL (Neon in development), MongoDB (Atlas in development) |
 | AI | Groq (`openai/gpt-oss-120b`), PyMuPDF and python-docx for text extraction |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router |
 | Auth | JWT (PyJWT), Argon2 password hashing, hashed API keys |
 | Infrastructure | Docker Compose, nginx, GitHub Actions (CI with a SQLite/PostgreSQL test matrix and image builds) |
+| Quality | pytest (212 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
 | Quality | pytest (198 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
 
 ## How it works
@@ -233,6 +245,45 @@ API keys are stored as SHA-256 hashes and shown once on creation. Because neithe
 source publishes award values, spend-by-buyer reports advertised activity and known values
 rather than actual spend.
 
+### Caching and rate limits (Redis)
+
+Tender data changes only when the sync runs, every 6 hours, but each search costs three
+PostgreSQL queries (province counts, total and the page). Searches, tender details, the buyer
+list, sync status and the public API's buyer analytics are therefore cached in Redis
+(read-through, with TTLs of 1 minute to 1 hour). Responses carry an `X-Cache: HIT` or `MISS`
+header.
+
+- **Invalidation by version, not by deleting keys.** Cached tender keys include a version
+  number (`tih:search:v42:<hash of the filters>`). After a sync, or when an AI summary fills in
+  a missing tender value, the version is incremented. New requests build new keys, and the old
+  entries are never read again and expire on their own.
+- **Plan limits still apply.** A cached search counts towards the Free plan's weekly limit just
+  like an uncached one; the cache only saves the database work.
+- **Shared rate limits.** The public API's 60 requests per minute and the demo's 10 per hour
+  are counted in a Redis sorted set by a Lua script. The script runs atomically, so two API
+  processes can't both let a request through at the limit, and it uses Redis's clock so servers
+  can't disagree about time.
+- **Failing open.** Redis is optional (`REDIS_URL`). If it's unreachable, lookups count as
+  misses, rate limits fall back to per-process counting, and Redis is skipped for 30 seconds so
+  requests don't each wait for a timeout. `/api/health` reports the cache as `connected`,
+  `unavailable` or `disabled`.
+- **One database.** Every key starts with `tih:`, so the app fits in a single Redis database
+  (such as the Redis Cloud free plan) alongside other apps.
+
+Measured from South Africa against Neon (Frankfurt) and the Redis Cloud free plan, median of
+5 requests through the API:
+
+| Request | Without cache (miss) | Cache hit |
+|---|---|---|
+| Search, no filters | 1,042 ms | 433 ms |
+| Search, keyword | 1,248 ms | 423 ms |
+| Search, keyword + province | 1,249 ms | 424 ms |
+| Tender detail | 1,397 ms | 427 ms |
+| Buyer list | 665 ms | 457 ms |
+
+About 360 ms of every request is the signed-in user lookup in PostgreSQL, which isn't cached.
+A cache hit spends only around 70 ms in Redis itself (two round trips).
+
 ### Notifications
 
 In-app notifications appear under the bell in the header: task assignments, status changes,
@@ -256,7 +307,7 @@ same on demand). Demo creation is rate-limited to 10 per hour per visitor.
 
 ## Quick start with Docker
 
-Runs the whole stack (React app, API, background worker, PostgreSQL and MongoDB) with one
+Runs the whole stack (React app, API, background worker, PostgreSQL, MongoDB and Redis) with one
 command. Only [Docker](https://www.docker.com/products/docker-desktop/) is required.
 
 ```bash

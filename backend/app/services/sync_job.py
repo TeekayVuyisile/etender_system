@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.services import job_lock
+from app.services.cache import get_cache
 from app.services.sync_runs import SyncRunStore, get_sync_run_store
 from app.services.tender_sync import SyncResult, default_client, sync_tenders
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 LOCK_NAME = "tender_sync"
 # Longer than any realistic sync; if a process dies mid-sync, the lock frees itself after this.
 LOCK_TTL = timedelta(hours=2)
+SYNC_STATUS_CACHE_KEY = "sync-status"
 
 
 def run_sync_job(
@@ -34,7 +36,9 @@ def run_sync_job(
         if not job_lock.acquire(db, LOCK_NAME, LOCK_TTL):
             logger.info("Tender sync skipped: another sync is already running")
             return None
+        cache = get_cache()
         run_id = runs.start(trigger, days)
+        cache.delete(SYNC_STATUS_CACHE_KEY)
         try:
             with client_factory() as client:
                 result = sync_tenders(db, client, days=days, enrich=enrich)
@@ -45,8 +49,12 @@ def run_sync_job(
             raise
         finally:
             job_lock.release(db, LOCK_NAME)
+            # Even a failed sync may have saved some batches, so cached tender data is stale.
+            cache.invalidate_tenders()
+            cache.delete(SYNC_STATUS_CACHE_KEY)
 
     runs.finish(run_id, "success", result.as_dict())
+    cache.delete(SYNC_STATUS_CACHE_KEY)
     logger.info("Tender sync finished: %s", result.as_dict())
     return result
 

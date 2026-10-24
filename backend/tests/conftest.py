@@ -9,11 +9,13 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-hs256"
 os.environ["DEMO_MODE_ENABLED"] = "false"
 os.environ["SYNC_SCHEDULE_ENABLED"] = "false"
 os.environ["GROQ_API_KEY"] = ""
+os.environ["REDIS_URL"] = ""
 
 from collections.abc import Iterator  # noqa: E402
 from datetime import UTC, datetime, timedelta  # noqa: E402
 from typing import Any  # noqa: E402
 
+import fakeredis  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, event, make_url, text  # noqa: E402
@@ -28,9 +30,11 @@ from app.db.session import (
 )
 from app.main import app  # noqa: E402
 from app.models import Tender  # noqa: E402
+from app.services import cache as cache_module  # noqa: E402
 from app.services.activity import get_activity_logger  # noqa: E402
 from app.services.analytics import get_analytics_cache  # noqa: E402
 from app.services.api_keys import rate_limiter  # noqa: E402
+from app.services.cache import Cache  # noqa: E402
 from app.services.llm import LLMResponse  # noqa: E402
 from app.services.match_store import get_match_store  # noqa: E402
 from app.services.notifications import (  # noqa: E402
@@ -82,6 +86,20 @@ def _postgres_schema() -> Iterator[None]:
     if USING_POSTGRES:
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _no_redis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests run without Redis unless they ask for the `redis_cache` fixture."""
+    monkeypatch.setattr(cache_module, "_cache", Cache(None))
+
+
+@pytest.fixture
+def redis_cache(monkeypatch: pytest.MonkeyPatch) -> Cache:
+    """An in-memory stand-in for Redis (fakeredis runs the same commands and Lua scripts)."""
+    cache = Cache(fakeredis.FakeRedis(decode_responses=True))
+    monkeypatch.setattr(cache_module, "_cache", cache)
+    return cache
 
 
 class FakeActivityLogger:

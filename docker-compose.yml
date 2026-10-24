@@ -10,6 +10,7 @@ x-backend: &backend
     DATABASE_URL: postgresql://tih:${POSTGRES_PASSWORD:-tih-local-password}@postgres:5432/tender_insight_hub
     MONGODB_URL: mongodb://mongo:27017
     MONGODB_DB_NAME: tender_insight_hub
+    REDIS_URL: redis://redis:6379/0
     JWT_SECRET_KEY: ${JWT_SECRET_KEY:-docker-local-secret-change-me}
     GROQ_API_KEY: ${GROQ_API_KEY:-}
     DEMO_MODE_ENABLED: ${DEMO_MODE_ENABLED:-false}
@@ -49,6 +50,26 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # A cache only: capped memory, evicts least recently used keys, nothing saved to disk.
+    command:
+      - redis-server
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   migrate:
     <<: *backend
     command: ["alembic", "upgrade", "head"]
@@ -64,6 +85,8 @@ services:
         condition: service_completed_successfully
       mongo:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker:
     <<: *backend
@@ -74,6 +97,8 @@ services:
       migrate:
         condition: service_completed_successfully
       mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:

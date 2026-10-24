@@ -7,12 +7,14 @@ import time
 from collections import defaultdict, deque
 from collections.abc import Hashable
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import ApiKey, User
+from app.services import cache
 
 KEY_PREFIX = "tih_"
 RATE_LIMIT_PER_MINUTE = 60
@@ -61,14 +63,37 @@ def verify_key(db: Session, raw_key: str) -> ApiKey | None:
     return api_key
 
 
-class RateLimiter:
-    """Sliding one-minute window per key, kept in memory.
+# Sliding-window rate limit, run inside Redis as one atomic step so two API processes checking
+# the same key at once can't both slip under the limit. KEYS[1] is a sorted set of request
+# times; ARGV: window (ms), limit, a unique request id. Returns -1 if allowed, otherwise the
+# milliseconds until a slot frees up. Redis's own clock is used so servers can't disagree.
+SLIDING_WINDOW_SCRIPT = """
+local now = redis.call('TIME')
+local now_ms = now[1] * 1000 + math.floor(now[2] / 1000)
+local window = tonumber(ARGV[1])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now_ms - window)
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[2]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  return window - (now_ms - tonumber(oldest[2]))
+end
+redis.call('ZADD', KEYS[1], now_ms, ARGV[3])
+redis.call('PEXPIRE', KEYS[1], window)
+return -1
+"""
 
-    Good enough for a single server process; with several servers this would move to a
-    shared store such as Redis.
+
+class RateLimiter:
+    """Sliding-window rate limit per key.
+
+    Requests are counted in Redis when it's configured, so the limit holds across every API
+    process and survives restarts. Without Redis (or while it's unreachable) each process
+    counts in memory instead.
     """
 
-    def __init__(self, limit: int = RATE_LIMIT_PER_MINUTE, window_seconds: float = 60) -> None:
+    def __init__(
+        self, name: str, limit: int = RATE_LIMIT_PER_MINUTE, window_seconds: float = 60
+    ) -> None:
+        self.name = name
         self.limit = limit
         self.window = window_seconds
         self.period_label = (
@@ -78,19 +103,38 @@ class RateLimiter:
         self._lock = threading.Lock()
 
     def check(self, key_id: Hashable) -> None:
+        retry_after = self._check_redis(key_id)
+        if retry_after is None:
+            retry_after = self._check_memory(key_id)
+        if retry_after > 0:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many requests: the limit is {self.limit} per {self.period_label}",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    def _check_redis(self, key_id: Hashable) -> int | None:
+        """Seconds to wait (0 if allowed), or None if Redis isn't available."""
+        key = f"{cache.KEY_PREFIX}ratelimit:{self.name}:{key_id}"
+        wait_ms = cache.get_cache().run(
+            lambda r: r.register_script(SLIDING_WINDOW_SCRIPT)(
+                keys=[key], args=[int(self.window * 1000), self.limit, uuid4().hex]
+            )
+        )
+        if wait_ms is None:
+            return None
+        return 0 if int(wait_ms) < 0 else int(wait_ms) // 1000 + 1
+
+    def _check_memory(self, key_id: Hashable) -> int:
         now = time.monotonic()
         with self._lock:
             hits = self._hits[key_id]
             while hits and now - hits[0] > self.window:
                 hits.popleft()
             if len(hits) >= self.limit:
-                retry_after = int(self.window - (now - hits[0])) + 1
-                raise HTTPException(
-                    status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Too many requests: the limit is {self.limit} per {self.period_label}",
-                    headers={"Retry-After": str(retry_after)},
-                )
+                return int(self.window - (now - hits[0])) + 1
             hits.append(now)
+            return 0
 
 
-rate_limiter = RateLimiter()
+rate_limiter = RateLimiter("api_key")

@@ -77,7 +77,7 @@ def read_current_user(user: CurrentUser) -> User:
     return user
 
 
-demo_rate_limiter = RateLimiter(limit=10, window_seconds=3600)
+demo_rate_limiter = RateLimiter("demo", limit=10, window_seconds=3600)
 
 
 @router.post("/demo", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
