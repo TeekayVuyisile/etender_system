@@ -1,7 +1,9 @@
+import { trackRequest } from './serverWake'
 import type { Plan } from './types'
 
 // Small wrapper around fetch for calling our FastAPI backend.
-// All requests go to /api/..., which Vite proxies to the backend in development.
+// All requests go to /api/..., which Vite proxies to the backend in development (and nginx or
+// the hosting's rewrite rules forward in production).
 
 const TOKEN_KEY = 'tih.access_token'
 
@@ -76,7 +78,7 @@ export async function apiRequest<T>(
     body = new URLSearchParams(form)
   }
 
-  const response = await fetch(`/api${path}`, { method, headers, body })
+  const response = await trackRequest(fetch(`/api${path}`, { method, headers, body }))
   if (!response.ok) {
     const { message, code, requiredPlan } = await readError(response)
     throw new ApiError(response.status, message, code, requiredPlan)
@@ -131,9 +133,9 @@ async function readError(response: Response): Promise<ErrorInfo> {
 /** Download a file from the API (with the auth token) and save it in the browser. */
 export async function apiDownload(path: string, fallbackName: string): Promise<void> {
   const token = tokenStorage.get()
-  const response = await fetch(`/api${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const response = await trackRequest(
+    fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  )
   if (!response.ok) {
     const { message, code, requiredPlan } = await readError(response)
     throw new ApiError(response.status, message, code, requiredPlan)

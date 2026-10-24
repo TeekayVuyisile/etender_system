@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { GuestOnly, RequireAuth, RequireCompanyProfile } from './auth/RouteGuards'
 import { AppLayout } from './components/AppLayout'
+import { ServerWakeNotice } from './components/ServerWakeNotice'
 import { ApiAccessPage } from './pages/ApiAccessPage'
 import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -46,6 +47,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <ServerWakeNotice />
       </AuthProvider>
     </BrowserRouter>
   )

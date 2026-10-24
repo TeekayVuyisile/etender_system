@@ -367,6 +367,30 @@ docker compose down -v     # stop and delete the database volumes
 docker system df           # see how much disk Docker uses; `docker system prune` frees it
 ```
 
+## Deployment
+
+Production runs on free tiers, defined as code in [`render.yaml`](render.yaml) (a Render
+Blueprint):
+
+| Part | Where | Notes |
+|---|---|---|
+| Frontend | Render static site | Served from a CDN; rewrite rules forward `/api/*` to the API, so the browser sees one site |
+| API | Render web service (Docker, Frankfurt) | Runs Alembic migrations on start, then FastAPI; also works through the summary queue |
+| PostgreSQL | Neon (Frankfurt) | |
+| Redis | Redis Cloud free plan (Frankfurt) | Cache, rate limits, job queue and Groq token budget |
+| MongoDB | MongoDB Atlas free cluster | |
+| Scheduled jobs | GitHub Actions ([`scheduled-jobs.yml`](.github/workflows/scheduled-jobs.yml)) | Tender sync every 6 hours, reminders and demo upkeep hourly |
+
+- **Same city.** The API, Neon and Redis all run in Frankfurt, a few milliseconds apart.
+  Every request makes several database and cache calls, so the API sits next to its data
+  rather than next to its users.
+- **Continuous deployment.** Render deploys each push to `main` once the CI checks have passed,
+  and only switches traffic to a new version after its health check (`/api/health`) responds.
+- **Sleeping on the free plan.** The API sleeps after 15 minutes idle and takes up to a minute
+  to wake. The static frontend never sleeps, and shows a "waking up the server" notice while
+  the first request waits. Scheduled work runs from GitHub Actions rather than inside the API,
+  because a sleeping service can't run a scheduler.
+
 ## Getting started (local development)
 
 **Prerequisites:** Python 3.12+, Node.js 20+
