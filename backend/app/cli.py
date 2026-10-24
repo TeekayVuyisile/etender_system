@@ -3,6 +3,7 @@
 python -m app.cli sync-tenders --days 30   # one sync now
 python -m app.cli scheduler                # sync, reminders and summary queue (worker process)
 python -m app.cli prepare-demo             # AI summaries for demo workspaces
+python -m app.cli hourly-jobs              # reminders and demo upkeep, once (e.g. from cron)
 """
 
 import argparse
@@ -13,8 +14,10 @@ from datetime import timedelta
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import summary_queue
-from app.services.demo import prepare_demo_summaries
+from app.services.demo import prepare_demo_summaries, run_demo_upkeep
 from app.services.llm import get_llm_client
+from app.services.notification_events import run_reminders
+from app.services.notifications import get_notifier
 from app.services.summary_store import get_summary_store
 from app.services.sync_job import SyncScheduler, demo_upkeep_job, reminder_job, run_sync_job
 
@@ -46,6 +49,9 @@ def main() -> None:
     commands.add_parser(
         "prepare-demo", help="Generate AI summaries so new demo workspaces show them"
     )
+    commands.add_parser(
+        "hourly-jobs", help="Send due reminders and run demo upkeep once, then exit"
+    )
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -55,6 +61,12 @@ def main() -> None:
         result = run_sync_job(SessionLocal, args.days, trigger="cli", enrich=not args.no_enrich)
         if result is None:
             logger.warning("Another tender sync is already running; try again later")
+    elif args.command == "hourly-jobs":
+        # The same jobs the scheduler runs every hour, for hosts without an always-on worker.
+        due = run_reminders(SessionLocal, get_notifier())
+        logger.info("Checked %d due reminders", due)
+        if settings.demo_mode_enabled:
+            run_demo_upkeep(SessionLocal)
     elif args.command == "prepare-demo":
         generated = prepare_demo_summaries(SessionLocal, get_summary_store(), get_llm_client())
         logger.info("Generated %d demo summaries", generated)
