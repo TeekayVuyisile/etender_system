@@ -71,11 +71,11 @@ flowchart TB
         direction LR
         web["web<br/>nginx + React build"]
         api["api<br/>FastAPI"]
-        worker["worker<br/>sync + reminders"]
+        worker["worker<br/>sync, reminders,<br/>summary jobs"]
         migrate["migrate<br/>Alembic, runs once"]
         pg[("PostgreSQL<br/>teams, tenders,<br/>workspace, plans")]
         mongo[("MongoDB<br/>AI summaries, scores,<br/>notifications, logs")]
-        redis[("Redis<br/>cache, rate limits")]
+        redis[("Redis<br/>cache, rate limits,<br/>job queue")]
     end
 
     subgraph external ["External services"]
@@ -93,9 +93,10 @@ flowchart TB
     migrate --> pg
     worker --> pg
     worker --> mongo
-    worker -. "invalidate" .-> redis
+    worker --> redis
     worker -. "every 6 h" .-> etenders
     api -. "summaries" .-> groq
+    worker -. "summaries" .-> groq
 ```
 
 **Design decisions**
@@ -108,6 +109,10 @@ flowchart TB
 - **Fitting a large document into a small token budget.** Tender packs run to 50–150 pages, while
   the free LLM tier allows about 8k tokens a minute. A keyword-scored excerpt selector sends only
   the passages that matter.
+- **AI jobs that survive restarts and share one rate limit.** Summary jobs go on a Redis
+  Stream that the worker and API processes read as a consumer group, so a job interrupted by
+  a crash is picked up again. Every process reserves Groq tokens from a budget shared in Redis,
+  so together they stay under the free tier's per-minute limit instead of hitting 429 errors.
 - **A separate worker with a database lock.** Scheduled syncs and reminders run outside the API.
   A PostgreSQL lock guarantees only one sync runs at a time, even with several processes.
 - **Redis as a cache that can be lost.** Tender data only changes when the sync runs, so searches
@@ -127,7 +132,7 @@ flowchart TB
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router |
 | Auth | JWT (PyJWT), Argon2 password hashing, hashed API keys |
 | Infrastructure | Docker Compose, nginx, GitHub Actions (CI with a SQLite/PostgreSQL test matrix and image builds) |
-| Quality | pytest (212 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
+| Quality | pytest (225 tests), Ruff, oxlint, TypeScript strict mode, branch protection with required checks |
 
 ## How it works
 
@@ -158,7 +163,8 @@ Some notes on the source data:
 ### AI pipeline
 
 Tender summaries are generated on request (`POST /api/tenders/{id}/summary`) as a background job;
-the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
+the frontend polls `GET /api/tenders/{id}/summary` until it's ready. The job is queued in Redis
+(see [Background jobs and the Groq budget](#background-jobs-and-the-groq-budget)).
 
 1. **Download** up to 3 of the tender's documents (PDF, DOCX, or ZIPs containing them), with
    size limits and zip-bomb protection.
@@ -177,7 +183,7 @@ the frontend polls `GET /api/tenders/{id}/summary` until it's ready.
    tender's budget when the source data has none.
 
 Scanned documents without a text layer fall back to a summary of the tender's portal details,
-and say so. LLM calls are serialised and retried on rate limits.
+and say so. LLM calls wait for the shared token budget and are retried on rate limits.
 
 ### Readiness scoring
 
@@ -279,6 +285,33 @@ Measured from South Africa against Neon (Frankfurt) and the Redis Cloud free pla
 About 360 ms of every request is the signed-in user lookup in PostgreSQL, which isn't cached.
 A cache hit spends only around 70 ms in Redis itself (two round trips).
 
+### Background jobs and the Groq budget
+
+A summary takes up to a minute, so it runs outside the request. FastAPI's `BackgroundTasks`
+would lose the job if the process restarted mid-way, so jobs go on a **Redis Stream**
+(`tih:queue:summaries`) instead:
+
+- The API adds the job (`XADD`) and returns `202` straight away.
+- The worker and every API process read the stream as one **consumer group**, so each job goes
+  to exactly one of them, whichever is free.
+- A job is acknowledged (`XACK`) only once it has finished. If its process dies first, the job
+  stays pending, and another consumer claims it (`XAUTOCLAIM`) after 10 minutes idle. A job
+  delivered 3 times without finishing is marked as failed, so it can't loop forever.
+
+Groq's free tier allows about 8,000 tokens a minute **per API key**, however many processes
+use it. Before each call, a process reserves its estimated tokens (prompt plus requested
+output, which Groq counts up front) in a sliding one-minute window in Redis, using a Lua
+script. If the budget is used up, it waits for the oldest call to leave the window rather than
+sending a request that would be rejected.
+
+In a test with the real services, two summaries were queued while no consumer was running and
+the API was restarted. Both were picked up from the queue: the first finished in 7 seconds, and
+the second waited 55 seconds for the token budget and then finished, with no 429 errors from Groq.
+
+Redis is configured to evict only keys that have a TTL (`volatile-lru`, as on Redis Cloud), so
+under memory pressure it drops old cache entries but never the queue. Without Redis, summaries
+run in the API process with `BackgroundTasks` and LLM calls are made one at a time per process.
+
 ### Notifications
 
 In-app notifications appear under the bell in the header: task assignments, status changes,
@@ -317,10 +350,11 @@ of tenders, which takes a few minutes; it then syncs every 6 hours.
 | ---------- | ------------------------------------------------------------------ |
 | `web`      | nginx: serves the built React app and proxies `/api` and `/docs`   |
 | `api`      | FastAPI backend                                                    |
-| `worker`   | Scheduled tender sync, deadline reminders and demo upkeep          |
+| `worker`   | Scheduled tender sync, deadline reminders, demo upkeep and AI summary jobs |
 | `migrate`  | Applies Alembic migrations, then exits; `api` and `worker` wait for it |
 | `postgres` | PostgreSQL 18                                                      |
 | `mongo`    | MongoDB 8                                                          |
+| `redis`    | Redis 8: cache, rate limits and the AI summary queue               |
 
 Only port 8080 is published; the databases are reachable only inside the Compose network and
 keep their data in named volumes.

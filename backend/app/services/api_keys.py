@@ -1,6 +1,7 @@
 """API keys for the public API: creation, verification and a simple rate limit."""
 
 import hashlib
+import math
 import secrets
 import threading
 import time
@@ -123,7 +124,7 @@ class RateLimiter:
         )
         if wait_ms is None:
             return None
-        return 0 if int(wait_ms) < 0 else int(wait_ms) // 1000 + 1
+        return 0 if int(wait_ms) < 0 else max(1, math.ceil(int(wait_ms) / 1000))
 
     def _check_memory(self, key_id: Hashable) -> int:
         now = time.monotonic()
