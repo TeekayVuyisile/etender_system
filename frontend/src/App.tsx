@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthProvider'
 import { GuestOnly, RequireAuth, RequireCompanyProfile } from './auth/RouteGuards'
 import { AppLayout } from './components/AppLayout'
 import { ServerWakeNotice } from './components/ServerWakeNotice'
+import { useHealth } from './lib/health'
 import { ApiAccessPage } from './pages/ApiAccessPage'
 import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -16,6 +17,14 @@ import { TendersPage } from './pages/TendersPage'
 import { WorkspaceEntryPage } from './pages/WorkspaceEntryPage'
 import { WorkspacePage } from './pages/WorkspacePage'
 import { RegisterPage } from './pages/RegisterPage'
+
+// Pings the API as soon as any page opens. On free hosting this starts waking a sleeping
+// server while the visitor is still reading the landing page, and the request is tracked,
+// so ServerWakeNotice explains the wait if it's slow. Shares its cache with ApiStatus.
+function WakeServer() {
+  useHealth()
+  return null
+}
 
 function App() {
   return (
@@ -47,6 +56,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <WakeServer />
         <ServerWakeNotice />
       </AuthProvider>
     </BrowserRouter>
