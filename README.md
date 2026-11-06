@@ -28,6 +28,15 @@ live data from the National Treasury [OCDS eTenders API](https://ocds-api.etende
   </tr>
 </table>
 
+### See it in action
+
+A 90-second walkthrough of the live app: search tenders, get an AI summary of the bid documents, check readiness against the company profile, and track the bid with your team.
+
+
+https://github.com/user-attachments/assets/1d412964-fb4f-4781-892e-83f1da45f265
+
+
+
 ## Features
 
 - **Tender discovery.** Tenders are synced from the OCDS API every few hours and enriched with
