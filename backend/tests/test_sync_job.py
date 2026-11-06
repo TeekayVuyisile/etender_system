@@ -17,7 +17,15 @@ HOUR = timedelta(hours=1)
 
 
 def mock_apis(release_ids: tuple[int, ...] = (1, 2)) -> None:
-    respx.get(OCDS_RELEASES_URL).respond(json={"releases": [make_release(i) for i in release_ids]})
+    # Close the mocked tenders relative to today: a fixed date eventually passes, and closed
+    # tenders drop out of the search results that the tests count.
+    now = datetime.now(UTC)
+    period = {
+        "startDate": (now - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "endDate": (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    releases = [make_release(i, tenderPeriod=period) for i in release_ids]
+    respx.get(OCDS_RELEASES_URL).respond(json={"releases": releases})
     respx.get(PORTAL_TENDERS_URL).respond(
         json={"recordsTotal": 1, "data": [make_portal_record(release_ids[0])]}
     )
